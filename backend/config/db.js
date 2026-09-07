@@ -21,7 +21,7 @@ function getPool() {
         password: decodeURIComponent(dbUrl.password),
         database: dbUrl.pathname.replace(/^\//, '') || 'orca_marine_db',
       };
-      if (process.env.DB_SSL === 'true' || dbUrl.searchParams.get('ssl-mode') || !dbUrl.hostname.includes('localhost')) {
+      if (process.env.DB_SSL === 'true' || dbUrl.searchParams.get('ssl-mode') || (poolConfig.host && !poolConfig.host.includes('localhost'))) {
         poolConfig.ssl = { rejectUnauthorized: false };
       }
     } catch (err) {
@@ -29,6 +29,7 @@ function getPool() {
     }
   }
 
+  // Fallback to individual environment variables if DATABASE_URL was not set or parsed
   if (!poolConfig.host) {
     poolConfig = {
       host:     process.env.DB_HOST || 'localhost',
@@ -41,6 +42,8 @@ function getPool() {
       poolConfig.ssl = { rejectUnauthorized: false };
     }
   }
+
+  console.log(`[DB Config] Target Host: ${poolConfig.host}:${poolConfig.port}, Database: ${poolConfig.database}, User: ${poolConfig.user}, SSL: ${Boolean(poolConfig.ssl)}`);
 
   poolConfig.waitForConnections = true;
   poolConfig.connectionLimit    = parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 10;
@@ -59,11 +62,11 @@ async function testConnection() {
     const conn = await p.getConnection();
     const [rows] = await conn.query('SELECT 1 AS ok');
     conn.release();
-    console.log('MySQL connected → orca_marine_db');
+    console.log('MySQL connected -> orca_marine_db');
     return true;
   } catch (err) {
     console.error('MySQL connection failed:', err?.message || err);
-    if (err?.code) console.error('Error code:', err.code, 'Error no:', err.errno);
+    if (err?.code) console.error('Error details:', { code: err.code, errno: err.errno, syscall: err.syscall, address: err.address, port: err.port });
     return false;
   }
 }
