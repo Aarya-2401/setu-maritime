@@ -42,8 +42,13 @@ app.get('/api/v1/health', (_req, res) => res.json({ status: 'ok', timestamp: new
 
 app.use((_req, res) => res.status(404).json({ error: 'Endpoint not found' }));
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Server Error:', err?.message || err);
-  res.status(500).json({ error: 'Internal server error', details: err?.message || 'Unknown error' });
+  console.error('Server Error:', err);
+  res.status(500).json({
+    error: 'Internal server error',
+    message: err?.message || String(err),
+    code: err?.code,
+    errno: err?.errno
+  });
 });
 
 async function start() {
