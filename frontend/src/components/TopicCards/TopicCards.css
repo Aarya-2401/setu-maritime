@@ -1,0 +1,391 @@
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  flex-shrink: 0;
+  margin-top: 0;
+}
+
+.topic-card {
+  contain: layout style;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px 8px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 6px;
+  height: 130px;
+  box-sizing: border-box;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.topic-card--loading::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(53, 201, 232, 0.08) 50%,
+    transparent 100%
+  );
+  animation: shimmer 1.6s infinite ease-in-out;
+  pointer-events: none;
+}
+
+.topic-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-highlight);
+}
+
+.topic-card__header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.topic-card__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.topic-card__footer {
+  border-top: 1px solid var(--border-soft);
+  padding-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+
+.topic-card__link {
+  background: none;
+  border: none;
+  color: var(--accent-cyan);
+  font-size: 10.5px;
+  font-weight: 600;
+  padding: 0;
+  transition: color 0.15s ease;
+  white-space: nowrap;
+}
+
+.topic-card__link:hover {
+  color: #fff;
+}
+
+/* Weather Card Specifics */
+.weather-card__unit {
+  font-size: 11px;
+  font-weight: 500;
+  margin-left: 1px;
+  color: var(--text-secondary);
+}
+
+.weather-card__main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  min-height: auto;
+}
+
+.weather-card__temp {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.weather-card__meta {
+  text-align: right;
+}
+
+.weather-card__feels {
+  font-size: 10px;
+  color: var(--text-secondary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.weather-card__place {
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 130px;
+}
+
+.weather-card__stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  background: var(--bg-card);
+  padding: 3px 6px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-soft);
+  min-height: auto;
+  box-sizing: border-box;
+}
+
+.weather-card__stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.weather-card__stat-label {
+  font-size: 8px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.weather-card__stat-value {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Wind Card Specifics */
+.wind-card__main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wind-card__compass-ring {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-shrink: 0;
+}
+
+.wind-card__n, .wind-card__e, .wind-card__s, .wind-card__w {
+  position: absolute;
+  font-size: 7px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+.wind-card__n { top: 2px; left: 50%; transform: translateX(-50%); }
+.wind-card__s { bottom: 2px; left: 50%; transform: translateX(-50%); }
+.wind-card__e { right: 2px; top: 50%; transform: translateY(-50%); }
+.wind-card__w { left: 2px; top: 50%; transform: translateY(-50%); }
+
+.wind-card__needle {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 15px;
+  background: linear-gradient(180deg, var(--accent-cyan), transparent);
+  border-radius: 2px;
+  transform-origin: bottom center;
+}
+
+.wind-card__speed {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.wind-card__direction {
+  font-size: 10px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+  font-weight: 600;
+}
+
+.wind-card__gusts {
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  margin-top: 1px;
+}
+
+.wind-card__gusts strong,
+.waves-card__period strong {
+  color: var(--text-primary);
+}
+
+/* Waves Card Specifics */
+.waves-card__main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.waves-card__value {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.waves-card__pill {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.waves-card__pill--good { color: var(--status-good); background: var(--status-good-bg); }
+.waves-card__pill--moderate { color: var(--status-moderate); background: var(--status-moderate-bg); }
+.waves-card__pill--bad { color: var(--status-bad); background: var(--status-bad-bg); }
+.waves-card__pill--neutral { color: var(--text-secondary); background: var(--bg-card); }
+
+.waves-card__chart {
+  height: 24px;
+}
+
+.waves-card__chart-empty {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.waves-card__period {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+/* Tide Card Specifics */
+.tide-card__chart {
+  height: 24px;
+}
+
+.tide-card__extremes {
+  display: flex;
+  justify-content: space-between;
+}
+
+.tide-card__extremes > div {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.tide-card__badge {
+  font-size: 8px;
+  font-weight: 700;
+  width: fit-content;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.tide-card__badge--low { color: var(--accent-cyan); background: var(--accent-cyan-dim); }
+.tide-card__badge--high { color: var(--status-good); background: var(--status-good-bg); }
+
+.tide-card__extreme-value {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+@media (max-width: 900px) {
+  .topic-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+}
+
+@media (max-width: 600px) {
+  .topic-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .topic-card {
+    padding: 10px 12px;
+    height: auto;
+  }
+}
+
+/* Decision impact badge in card footer */
+.topic-card__impact-tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.impact-lbl {
+  font-size: 9px;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.impact-pill {
+  font-size: 8.5px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.impact-pill--good {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+.impact-pill--moderate {
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  color: #f59e0b;
+}
+
+.impact-pill--bad {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #ef4444;
+}
+
+.impact-pill--neutral {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+}
+
+.topic-card__freshness {
+  font-size: 8.5px;
+  color: var(--text-muted);
+  font-weight: 500;
+}

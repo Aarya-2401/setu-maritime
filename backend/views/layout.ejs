@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SagarSetu Admin · ORCA Marine Intelligence</title>
+  <link rel="stylesheet" href="/css/admin.css">
+</head>
+<body>
+  <nav class="admin-nav">
+    <div class="admin-nav__brand">SETU Admin</div>
+    <div class="admin-nav__links">
+      <a href="/admin/">Dashboard</a>
+      <a href="/admin/harbors">Harbors</a>
+      <a href="/admin/api-docs">API Docs</a>
+      <a href="/api/v1/health" target="_blank">Health</a>
+    </div>
+  </nav>
+  <main class="admin-main">
+    <%- body %>
+  </main>
+  <footer class="admin-footer">
+    <p>ORCA Marine Decision Support System · SagarSetu Backend v1.0 · MySQL 8.0 + Express.js</p>
+  </footer>
+</body>
+</html>

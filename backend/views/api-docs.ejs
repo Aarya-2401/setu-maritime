@@ -1,0 +1,88 @@
+<%- include('layout', { body: `
+<h1>REST API Documentation</h1>
+<p class="subtitle">SagarSetu Backend · All endpoints return JSON</p>
+
+<h2>Harbor Reference</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/harbors</code>
+    <p>Returns all 56 fishing harbors with coordinates, type, capacity, and facilities.</p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/harbors/:id</code>
+    <p>Returns a single harbor by ID. Example: <a href="/api/v1/harbors/1" target="_blank">/api/v1/harbors/1</a></p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/harbors/:id/facilities</code>
+    <p>Returns 1NF facility list for a harbor. Example: <a href="/api/v1/harbors/1/facilities" target="_blank">/api/v1/harbors/1/facilities</a></p>
+  </div>
+</div>
+
+<h2>Marine Safety Domain</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/safety/nowcast?harbor_id=X</code>
+    <p>Latest safety snapshot (weather, waves, tides, alerts, composite rating). Add <code>&hours=24</code> for hourly history.</p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/safety/nowcast/all</code>
+    <p>Latest snapshot for ALL harbors (for map color-coding).</p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/safety/alerts</code>
+    <p>All currently active marine alerts.</p>
+  </div>
+</div>
+
+<h2>Tide Predictions</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/tides?harbor_id=X</code>
+    <p>Upcoming tide predictions. Add <code>&date=YYYY-MM-DD</code> for a specific date or <code>&limit=20</code>.</p>
+  </div>
+</div>
+
+<h2>PFZ Advisory Domain</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/pfz/advisories?harbor_id=X</code>
+    <p>Potential Fishing Zone advisories from a specific harbor.</p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/pfz/advisories/latest</code>
+    <p>Latest advisory batch across all harbors.</p>
+  </div>
+</div>
+
+<h2>Navigation & Geofencing</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/navigation/routes?harbor_id=X</code>
+    <p>Geofenced sailing routes with compliance status (EEZ/IMBL checks).</p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/navigation/restricted-zones</code>
+    <p>All 10 marine protected areas / restricted zones.</p>
+  </div>
+</div>
+
+<h2>Fisheries Analytics</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/analytics/catch-trends?state=X</code>
+    <p>Catch volume trends filtered by state, species, or year.</p>
+  </div>
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/analytics/species</code>
+    <p>All 14 species diagnostic profiles with stock health status.</p>
+  </div>
+</div>
+
+<h2>System</h2>
+<div class="endpoint-list">
+  <div class="api-doc">
+    <code class="method">GET</code> <code>/api/v1/health</code>
+    <p>Server health check with uptime and timestamp.</p>
+  </div>
+</div>
+` }) %>

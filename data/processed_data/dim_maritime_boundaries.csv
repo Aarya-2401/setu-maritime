@@ -1,0 +1,42 @@
+boundary_id,boundary_type,country,neighbor_country,jurisdiction_nm,latitude,longitude,point_order,description,source
+IND-EEZ-001,EEZ (Exclusive Economic Zone),India,N/A,200,23.7,68.1,1,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-002,EEZ (Exclusive Economic Zone),India,N/A,200,22.5,68.2,2,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-003,EEZ (Exclusive Economic Zone),India,N/A,200,20.5,68.8,3,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-004,EEZ (Exclusive Economic Zone),India,N/A,200,18.5,70.0,4,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-005,EEZ (Exclusive Economic Zone),India,N/A,200,16.0,71.0,5,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-006,EEZ (Exclusive Economic Zone),India,N/A,200,14.0,72.0,6,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-007,EEZ (Exclusive Economic Zone),India,N/A,200,12.0,73.0,7,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-008,EEZ (Exclusive Economic Zone),India,N/A,200,10.0,74.0,8,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-009,EEZ (Exclusive Economic Zone),India,N/A,200,8.0,75.5,9,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-010,EEZ (Exclusive Economic Zone),India,N/A,200,6.5,77.5,10,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-011,EEZ (Exclusive Economic Zone),India,N/A,200,6.0,79.0,11,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-012,EEZ (Exclusive Economic Zone),India,N/A,200,8.0,81.0,12,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-013,EEZ (Exclusive Economic Zone),India,N/A,200,10.0,82.5,13,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-014,EEZ (Exclusive Economic Zone),India,N/A,200,12.0,83.5,14,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-015,EEZ (Exclusive Economic Zone),India,N/A,200,14.0,84.5,15,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-016,EEZ (Exclusive Economic Zone),India,N/A,200,16.0,85.5,16,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-017,EEZ (Exclusive Economic Zone),India,N/A,200,18.0,87.0,17,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-018,EEZ (Exclusive Economic Zone),India,N/A,200,19.5,88.5,18,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-019,EEZ (Exclusive Economic Zone),India,N/A,200,20.5,89.5,19,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-EEZ-020,EEZ (Exclusive Economic Zone),India,N/A,200,21.5,89.0,20,Outer limit of India Exclusive Economic Zone (200 Nautical Miles),MarineRegions.org / UNCLOS
+IND-IMBL-SRI-001,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,10.0833,79.9167,1,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-SRI-002,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,9.8333,79.7333,2,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-SRI-003,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,9.5,79.5333,3,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-SRI-004,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,9.1,79.3667,4,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-SRI-005,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,8.7333,79.1667,5,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-SRI-006,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,8.2,78.9,6,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-SRI-007,IMBL (International Maritime Boundary Line),India,Sri Lanka,12,6.5,79.0,7,India - Sri Lanka Maritime Boundary (Palk Strait & Gulf of Mannar),International Maritime Boundaries / Survey of India
+IND-IMBL-PAK-001,IMBL (International Maritime Boundary Line),India,Pakistan,12,23.6333,68.1333,1,India - Pakistan Maritime Boundary (Sir Creek / Arabian Sea),International Maritime Boundaries / Survey of India
+IND-IMBL-PAK-002,IMBL (International Maritime Boundary Line),India,Pakistan,12,23.5,67.8,2,India - Pakistan Maritime Boundary (Sir Creek / Arabian Sea),International Maritime Boundaries / Survey of India
+IND-IMBL-PAK-003,IMBL (International Maritime Boundary Line),India,Pakistan,12,23.0,67.0,3,India - Pakistan Maritime Boundary (Sir Creek / Arabian Sea),International Maritime Boundaries / Survey of India
+IND-IMBL-PAK-004,IMBL (International Maritime Boundary Line),India,Pakistan,12,22.0,66.0,4,India - Pakistan Maritime Boundary (Sir Creek / Arabian Sea),International Maritime Boundaries / Survey of India
+IND-IMBL-PAK-005,IMBL (International Maritime Boundary Line),India,Pakistan,12,20.5,65.0,5,India - Pakistan Maritime Boundary (Sir Creek / Arabian Sea),International Maritime Boundaries / Survey of India
+IND-IMBL-BAN-001,IMBL (International Maritime Boundary Line),India,Bangladesh,12,21.65,89.15,1,India - Bangladesh Maritime Boundary (Bay of Bengal Award),International Maritime Boundaries / Survey of India
+IND-IMBL-BAN-002,IMBL (International Maritime Boundary Line),India,Bangladesh,12,21.3,89.25,2,India - Bangladesh Maritime Boundary (Bay of Bengal Award),International Maritime Boundaries / Survey of India
+IND-IMBL-BAN-003,IMBL (International Maritime Boundary Line),India,Bangladesh,12,20.8,89.4,3,India - Bangladesh Maritime Boundary (Bay of Bengal Award),International Maritime Boundaries / Survey of India
+IND-IMBL-BAN-004,IMBL (International Maritime Boundary Line),India,Bangladesh,12,19.5,89.7,4,India - Bangladesh Maritime Boundary (Bay of Bengal Award),International Maritime Boundaries / Survey of India
+IND-IMBL-BAN-005,IMBL (International Maritime Boundary Line),India,Bangladesh,12,18.0,90.0,5,India - Bangladesh Maritime Boundary (Bay of Bengal Award),International Maritime Boundaries / Survey of India
+IND-IMBL-MYA-001,IMBL (International Maritime Boundary Line),India,Myanmar,12,14.0,93.5,1,India - Myanmar Maritime Boundary (Coco Channel / Andaman),International Maritime Boundaries / Survey of India
+IND-IMBL-MYA-002,IMBL (International Maritime Boundary Line),India,Myanmar,12,13.5,93.7,2,India - Myanmar Maritime Boundary (Coco Channel / Andaman),International Maritime Boundaries / Survey of India
+IND-IMBL-MYA-003,IMBL (International Maritime Boundary Line),India,Myanmar,12,13.0,94.0,3,India - Myanmar Maritime Boundary (Coco Channel / Andaman),International Maritime Boundaries / Survey of India
+IND-IMBL-MYA-004,IMBL (International Maritime Boundary Line),India,Myanmar,12,12.5,94.2,4,India - Myanmar Maritime Boundary (Coco Channel / Andaman),International Maritime Boundaries / Survey of India

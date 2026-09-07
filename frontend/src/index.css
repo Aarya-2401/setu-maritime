@@ -1,0 +1,99 @@
+:root {
+  --bg-deep: #070c14;
+  --bg-panel: rgba(13, 20, 32, 0.82);
+  --bg-card: rgba(19, 29, 45, 0.65);
+  --bg-card-hover: rgba(26, 39, 60, 0.85);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-soft: rgba(255, 255, 255, 0.05);
+  --border-highlight: rgba(53, 201, 232, 0.25);
+
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+
+  --accent-cyan: #35c9e8;
+  --accent-cyan-dim: rgba(53, 201, 232, 0.12);
+  --accent-teal: #1fd1a8;
+  --accent-teal-dim: rgba(31, 209, 168, 0.12);
+
+  --status-good: #10b981;
+  --status-good-bg: rgba(16, 185, 129, 0.12);
+  --status-moderate: #f59e0b;
+  --status-moderate-bg: rgba(245, 158, 11, 0.12);
+  --status-bad: #ef4444;
+  --status-bad-bg: rgba(239, 68, 68, 0.12);
+
+  --font-display: 'Space Grotesk', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 7px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+body {
+  background: var(--bg-deep);
+  background-image: 
+    radial-gradient(at 10% 10%, rgba(53, 201, 232, 0.04) 0px, transparent 50%),
+    radial-gradient(at 90% 90%, rgba(31, 209, 168, 0.04) 0px, transparent 50%);
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  outline: none;
+}
+
+input, select, textarea {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.12);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(53, 201, 232, 0.3);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+
+.leaflet-container {
+  background: #090e17 !important;
+  font-family: var(--font-body) !important;
+}
+
+@media (max-width: 900px) {
+  html, body, #root {
+    height: auto;
+    overflow-y: auto;
+  }
+}

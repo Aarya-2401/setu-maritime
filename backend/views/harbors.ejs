@@ -1,0 +1,28 @@
+<%- include('layout', { body: `
+<h1>Fishing Harbors (${harbors.length})</h1>
+<p class="subtitle">All registered fishing harbors from <code>dim_fishing_harbors</code></p>
+
+<table class="data-table">
+  <thead>
+    <tr>
+      <th>ID</th><th>Landing Center</th><th>State</th><th>Sector</th>
+      <th>Lat</th><th>Lon</th><th>Type</th><th>Capacity</th>
+      <th>Facilities</th><th>API</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${harbors.map(h => '<tr>' +
+      '<td>' + h.harbor_id + '</td>' +
+      '<td><strong>' + h.landing_center_name + '</strong></td>' +
+      '<td>' + h.state + '</td>' +
+      '<td>' + h.sector + '</td>' +
+      '<td>' + h.latitude + '</td>' +
+      '<td>' + h.longitude + '</td>' +
+      '<td><span class="badge badge--dim">' + h.harbor_type + '</span></td>' +
+      '<td>' + h.vessel_capacity + '</td>' +
+      '<td>' + h.facility_count + '</td>' +
+      '<td><a href="/api/v1/harbors/' + h.harbor_id + '" target="_blank">JSON</a></td>' +
+    '</tr>').join('')}
+  </tbody>
+</table>
+` }) %>

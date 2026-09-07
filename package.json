@@ -1,0 +1,12 @@
+{
+  "name": "orca-final",
+  "version": "1.0.0",
+  "private": true,
+  "description": "SETU-ADAM01 / ORCA Integrated Maritime Decision Support Platform",
+  "scripts": {
+    "install:all": "npm install --prefix backend && npm install --prefix frontend",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build:frontend": "npm run build --prefix frontend"
+  }
+}

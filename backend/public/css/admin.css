@@ -1,0 +1,182 @@
+/* ============================================================
+   SagarSetu Admin Dashboard — Styles
+   ============================================================ */
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #f1f5f9;
+  color: #1e293b;
+  line-height: 1.6;
+}
+
+/* Nav */
+.admin-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  color: #f8fafc;
+  padding: 12px 24px;
+}
+
+.admin-nav__brand {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.admin-nav__links { display: flex; gap: 16px; }
+
+.admin-nav__links a {
+  color: #94a3b8;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  transition: color 0.15s;
+}
+
+.admin-nav__links a:hover { color: #f8fafc; }
+
+/* Main */
+.admin-main {
+  max-width: 1100px;
+  margin: 24px auto;
+  padding: 0 20px;
+}
+
+h1 { font-size: 24px; font-weight: 700; margin-bottom: 4px; }
+h2 { font-size: 18px; font-weight: 600; margin: 28px 0 12px; color: #334155; }
+
+.subtitle { color: #64748b; font-size: 14px; margin-bottom: 20px; }
+
+/* Stats Grid */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.stat-card--primary {
+  background: #1e40af;
+  color: #fff;
+  border-color: #1e40af;
+}
+
+.stat-card__value {
+  font-size: 32px;
+  font-weight: 800;
+  letter-spacing: -1px;
+}
+
+.stat-card__label {
+  font-size: 13px;
+  opacity: 0.75;
+  margin-top: 4px;
+}
+
+/* Data Table */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+}
+
+.data-table th {
+  background: #f8fafc;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.data-table td {
+  padding: 10px 14px;
+  font-size: 13px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.data-table tr:hover td { background: #f8fafc; }
+
+.data-table code { font-size: 12px; color: #6366f1; }
+
+/* Badges */
+.badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.badge--dim { background: #dbeafe; color: #1e40af; }
+.badge--fact { background: #fef3c7; color: #92400e; }
+
+/* Endpoint Links */
+.endpoint-list { display: flex; flex-direction: column; gap: 8px; }
+
+.endpoint {
+  display: block;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-family: 'Fira Code', monospace, monospace;
+  font-size: 13px;
+  color: #6366f1;
+  text-decoration: none;
+  transition: border-color 0.15s;
+}
+
+.endpoint:hover { border-color: #6366f1; }
+
+/* API Doc Blocks */
+.api-doc {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 14px 18px;
+}
+
+.api-doc p {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 6px;
+}
+
+.api-doc a { color: #6366f1; }
+
+.method {
+  background: #dcfce7;
+  color: #166534;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+/* Footer */
+.admin-footer {
+  text-align: center;
+  padding: 20px;
+  color: #94a3b8;
+  font-size: 12px;
+  margin-top: 40px;
+}

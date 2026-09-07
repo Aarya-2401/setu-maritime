@@ -1,0 +1,50 @@
+<%- include('layout', { body: `
+<h1>ORCA Database Dashboard</h1>
+<p class="subtitle">Live connection to <code>orca_marine_db</code> · MySQL 8.0 InnoDB</p>
+
+<div class="stats-grid">
+  <div class="stat-card stat-card--primary">
+    <div class="stat-card__value">${totalRows.toLocaleString()}</div>
+    <div class="stat-card__label">Total Rows</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__value">${tables.length}</div>
+    <div class="stat-card__label">Tables</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__value">4</div>
+    <div class="stat-card__label">SQL Views</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-card__value">4</div>
+    <div class="stat-card__label">AI Agent Domains</div>
+  </div>
+</div>
+
+<h2>Table Row Counts</h2>
+<table class="data-table">
+  <thead>
+    <tr><th>#</th><th>Table Name</th><th>Row Count</th><th>Type</th></tr>
+  </thead>
+  <tbody>
+    ${tables.map((t, i) => {
+      const type = t.startsWith('dim_') ? 'Dimension' : 'Fact';
+      const badge = type === 'Dimension' ? 'badge--dim' : 'badge--fact';
+      return '<tr><td>' + (i+1) + '</td><td><code>' + t + '</code></td><td>' + counts[t].toLocaleString() + '</td><td><span class="badge ' + badge + '">' + type + '</span></td></tr>';
+    }).join('')}
+  </tbody>
+</table>
+
+<h2>API Endpoints</h2>
+<div class="endpoint-list">
+  <a href="/api/v1/harbors" target="_blank" class="endpoint">GET /api/v1/harbors</a>
+  <a href="/api/v1/safety/nowcast?harbor_id=1" target="_blank" class="endpoint">GET /api/v1/safety/nowcast?harbor_id=1</a>
+  <a href="/api/v1/safety/alerts" target="_blank" class="endpoint">GET /api/v1/safety/alerts</a>
+  <a href="/api/v1/tides?harbor_id=1" target="_blank" class="endpoint">GET /api/v1/tides?harbor_id=1</a>
+  <a href="/api/v1/pfz/advisories?harbor_id=1" target="_blank" class="endpoint">GET /api/v1/pfz/advisories?harbor_id=1</a>
+  <a href="/api/v1/navigation/routes?harbor_id=1" target="_blank" class="endpoint">GET /api/v1/navigation/routes?harbor_id=1</a>
+  <a href="/api/v1/navigation/restricted-zones" target="_blank" class="endpoint">GET /api/v1/navigation/restricted-zones</a>
+  <a href="/api/v1/analytics/species" target="_blank" class="endpoint">GET /api/v1/analytics/species</a>
+  <a href="/api/v1/health" target="_blank" class="endpoint">GET /api/v1/health</a>
+</div>
+` }) %>

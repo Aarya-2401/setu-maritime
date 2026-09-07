@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+*.env
+
+# Build outputs
+dist/
+build/
+*/dist/
+*/build/
+
+# Logs & OS artifacts
+*.log
+npm-debug.log*
+yarn-debug.log*
+.DS_Store
+Thumbs.db
+.system_generated/
