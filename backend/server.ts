@@ -8,6 +8,8 @@ import { registerAiRoute } from './src/routes/ai.route';
 
 const { testConnection } = require('./config/db');
 
+console.log('[Startup Debug] DATABASE_URL present:', Boolean(process.env.DATABASE_URL), 'DB_HOST:', process.env.DB_HOST || '(unset)');
+
 const app = express();
 const PORT = Number(process.env.PORT || 3001);
 
