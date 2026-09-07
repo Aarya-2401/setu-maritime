@@ -16,7 +16,10 @@ router.get('/', async (req, res, next) => {
        ORDER BY state, landing_center_name`
     );
     res.json({ count: rows.length, data: rows });
-  } catch (err) { next(err); }
+  } catch (err) {
+    console.error('Error in /api/v1/harbors:', err);
+    res.status(500).json({ error: 'DB Query Failed', message: err?.message, code: err?.code, sqlMessage: err?.sqlMessage });
+  }
 });
 
 // GET /api/v1/harbors/:id — Single harbor by ID
