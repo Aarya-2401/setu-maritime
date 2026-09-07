@@ -101,8 +101,8 @@ app.use((_req, res) => {
 // Global Error Handler
 // ---------------------------------------------------------------------------
 app.use((err, _req, res, _next) => {
-  console.error('Server Error:', err.message);
-  res.status(500).json({ error: 'Internal server error', details: err.message });
+  console.error('Server Error:', err);
+  res.status(500).json({ error: 'Internal server error', details: err?.message || String(err), code: err?.code });
 });
 
 // ---------------------------------------------------------------------------
