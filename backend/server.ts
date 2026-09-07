@@ -49,6 +49,6 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 async function start() {
   const dbOk = await testConnection();
   if (!dbOk) console.warn('Starting server without database connection. Database-backed agents will fail until DB is available.');
-  app.listen(PORT, () => console.log(`ORCA backend running at http://localhost:${PORT}`));
+  app.listen(PORT, '0.0.0.0', () => console.log(`ORCA backend running at http://0.0.0.0:${PORT}`));
 }
 start();
