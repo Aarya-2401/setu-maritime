@@ -31,18 +31,19 @@ export function fallbackPlan(query: string): CoordinatorRequest {
 
   let locName: string | undefined;
   const known = [
-    'odisha', 'orissa', 'dhamra', 'puri', 'gopalpur', 'paradip', 'paradeep',
-    'bengal', 'west bengal', 'kolkata', 'calcutta', 'hooghly', 'sundarbans', 'sunderbans', 'digha', 'kakdwip', 'fraserganj',
-    'andhra', 'andhra pradesh', 'visakhapatnam', 'vizag', 'kakinada', 'machilipatnam', 'krishnapatnam',
-    'tamil nadu', 'chennai', 'madras', 'kasimedu', 'tuticorin', 'thoothukudi', 'rameswaram', 'kanyakumari', 'cuddalore',
-    'kerala', 'cochin', 'kochi', 'ernakulam', 'kollam', 'vizhinjam', 'trivandrum', 'kannur', 'beypore', 'calicut',
-    'karnataka', 'mangalore', 'mangaluru', 'malpe', 'udupi', 'karwar', 'tadri', 'honnavar',
+    'odisha', 'odhisha', 'odisa', 'orissa', 'orisa', 'dhamra', 'puri', 'gopalpur', 'paradip', 'paradeep',
+    'bengal', 'west bengal', 'westbengal', 'kolkata', 'calcutta', 'hooghly', 'sundarbans', 'sunderbans', 'digha', 'kakdwip', 'fraserganj',
+    'andhra', 'andhra pradesh', 'andhrapradesh', 'visakhapatnam', 'vizag', 'kakinada', 'machilipatnam', 'krishnapatnam',
+    'tamil nadu', 'tamilnadu', 'chennai', 'madras', 'kasimedu', 'tuticorin', 'thoothukudi', 'rameswaram', 'kanyakumari', 'cuddalore',
+    'kerala', 'kerla', 'cochin', 'kochi', 'ernakulam', 'kollam', 'vizhinjam', 'trivandrum', 'kannur', 'beypore', 'calicut',
+    'karnataka', 'karnatka', 'mangalore', 'mangaluru', 'malpe', 'udupi', 'karwar', 'tadri', 'honnavar',
     'goa', 'panaji', 'panjim', 'vasco', 'cutbona',
-    'maharashtra', 'mumbai', 'bombay', 'sassoon', 'versova', 'ratnagiri', 'malvan',
-    'gujarat', 'veraval', 'somnath', 'porbandar', 'okha', 'dwarka', 'mangrol',
-    'lakshadweep', 'kavaratti', 'agatti', 'minicoy',
+    'maharashtra', 'maharastra', 'mumbai', 'bombay', 'sassoon', 'versova', 'ratnagiri', 'malvan',
+    'gujarat', 'gujrat', 'veraval', 'somnath', 'porbandar', 'okha', 'dwarka', 'mangrol',
+    'lakshadweep', 'lakshdweep', 'kavaratti', 'agatti', 'minicoy',
     'andaman', 'nicobar', 'port blair',
-    'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur', 'bhopal', 'pune', 'lucknow', 'patna'
+    'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur', 'bhopal', 'pune', 'lucknow', 'patna',
+    'jaisalmer', 'jodhpur', 'udaipur', 'bikaner', 'ajmer', 'kota', 'agra', 'varanasi', 'gwalior', 'nashik'
   ];
   for (const loc of known) {
     if (q.includes(loc)) {

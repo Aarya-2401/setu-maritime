@@ -77,7 +77,11 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
   puri: 43,
   gopalpur: 44,
   odisha: 41,
+  odhisha: 41,
+  odisa: 41,
   orissa: 41,
+  orisa: 41,
+  udisa: 41,
 
   mangalore: 14,
   mangaluru: 14,
@@ -87,6 +91,7 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
   honnavar: 17,
   karwar: 18,
   karnataka: 14,
+  karnatka: 14,
 
   goa: 12,
   panaji: 12,
@@ -104,11 +109,13 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
   mangrol: 4,
   jafarabad: 5,
   gujarat: 1,
+  gujrat: 1,
 
   kavaratti: 49,
   agatti: 50,
   minicoy: 51,
   lakshadweep: 49,
+  lakshdweep: 49,
 
   'port blair': 52,
   junglighat: 52,
@@ -118,7 +125,15 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
   'car nicobar': 55,
   'campbell bay': 56,
   andaman: 52,
-  nicobar: 52
+  nicobar: 52,
+
+  kerla: 19,
+  keralam: 19,
+  maharastra: 6,
+  tamilnadu: 30,
+  andhrapradesh: 37,
+  westbengal: 47,
+  kolkatta: 47
 };
 
 export const INLAND_REGIONS = new Set([
@@ -126,8 +141,33 @@ export const INLAND_REGIONS = new Set([
   'bhopal', 'indore', 'patna', 'lucknow', 'kanpur', 'chandigarh', 'pune', 'gurgaon',
   'noida', 'ranchi', 'raipur', 'dehradun', 'shimla', 'srinagar', 'amritsar', 'ludhiana',
   'punjab', 'haryana', 'rajasthan', 'madhya pradesh', 'uttar pradesh', 'bihar',
-  'jharkhand', 'chhattisgarh', 'telangana', 'uttarakhand', 'himachal pradesh', 'assam'
+  'jharkhand', 'chhattisgarh', 'telangana', 'uttarakhand', 'himachal pradesh', 'assam',
+  'jaisalmer', 'jodhpur', 'udaipur', 'bikaner', 'ajmer', 'kota', 'alwar', 'sikar', 'bhilwara',
+  'agra', 'varanasi', 'prayagraj', 'allahabad', 'meerut', 'ghaziabad', 'aligarh', 'moradabad',
+  'bareilly', 'gorakhpur', 'saharanpur', 'jhansi', 'mathura', 'ayodhya',
+  'gwalior', 'jabalpur', 'ujjain', 'sagar', 'satna', 'rewa',
+  'nashik', 'aurangabad', 'amravati', 'solapur', 'kolhapur', 'nanded', 'jalgaon', 'akola',
+  'mysore', 'mysuru', 'hubli', 'belgaum', 'belagavi', 'gulbarga', 'davangere', 'bellary',
+  'warangal', 'nizamabad', 'khammam', 'karimnagar',
+  'jamshedpur', 'dhanbad', 'bokaro', 'hazaribagh',
+  'bilaspur', 'durg', 'bhilai', 'korba',
+  'gaya', 'bhagalpur', 'muzaffarpur', 'darbhanga',
+  'panipat', 'karnal', 'rohtak', 'hisar', 'sonipat',
+  'jalandhar', 'patiala', 'bathinda', 'mohali'
 ]);
+
+function levenshtein(a: string, b: string): number {
+  const m = a.length, n = b.length;
+  const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
+  for (let i = 0; i <= m; i++) dp[i][0] = i;
+  for (let j = 0; j <= n; j++) dp[0][j] = j;
+  for (let i = 1; i <= m; i++) {
+    for (let j = 1; j <= n; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[m][n];
+}
 
 export interface LocationResolution {
   status: 'SUPPORTED' | 'INLAND' | 'UNKNOWN';
@@ -178,8 +218,28 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
     }
 
-    // Fast-path inland check
-    const isInland = INLAND_REGIONS.has(raw) || Array.from(INLAND_REGIONS).some(inland => raw.includes(inland));
+    // Fuzzy match against regional city/state aliases (handles typos like Odhisha, Kerla, Gujrat)
+    let closestKey: string | null = null;
+    let minDistance = 999;
+    for (const key of Object.keys(REGIONAL_CITY_MAP)) {
+      const dist = levenshtein(raw, key);
+      const maxAllowed = key.length <= 4 ? 1 : 2;
+      if (dist <= maxAllowed && dist < minDistance) {
+        minDistance = dist;
+        closestKey = key;
+      }
+    }
+    if (closestKey) {
+      const fuzzyId = REGIONAL_CITY_MAP[closestKey];
+      const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [fuzzyId]);
+      if (mRows.length) {
+        return { status: 'SUPPORTED', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+      }
+    }
+
+    // Fast-path inland check with fuzzy tolerance
+    const isInland = INLAND_REGIONS.has(raw) ||
+      Array.from(INLAND_REGIONS).some(inland => raw.includes(inland) || inland.includes(raw) || levenshtein(raw, inland) <= (inland.length <= 4 ? 1 : 2));
     if (isInland) {
       return {
         status: 'INLAND',

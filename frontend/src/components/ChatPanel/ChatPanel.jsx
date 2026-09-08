@@ -97,7 +97,12 @@ export default function ChatPanel({
           (lower.includes('kochi') && (name.includes('cochin') || name.includes('kochi'))) ||
           (lower.includes('vizag') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
           (lower.includes('visakhapatnam') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
-          (lower.includes('paradip') && name.includes('paradip')) ||
+          ((lower.includes('paradip') || lower.includes('paradeep')) && name.includes('paradip')) ||
+          ((lower.includes('odisha') || lower.includes('odhisha') || lower.includes('orissa')) && (state.includes('odisha') || h.harbor_id === 41)) ||
+          ((lower.includes('kerala') || lower.includes('kerla')) && (state.includes('kerala') || h.harbor_id === 19)) ||
+          ((lower.includes('gujarat') || lower.includes('gujrat')) && (state.includes('gujarat') || h.harbor_id === 1)) ||
+          ((lower.includes('maharashtra') || lower.includes('maharastra')) && (state.includes('maharashtra') || h.harbor_id === 6)) ||
+          ((lower.includes('karnataka') || lower.includes('karnatka')) && (state.includes('karnataka') || h.harbor_id === 14)) ||
           (lower.includes('dhamra') && name.includes('dhamra')) ||
           (lower.includes('puri') && (dist.includes('puri') || name.includes('puri'))) ||
           (lower.includes('goa') && (state.includes('goa') || name.includes('goa')))
