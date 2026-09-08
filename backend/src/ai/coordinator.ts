@@ -33,20 +33,25 @@ export function fallbackPlan(query: string): CoordinatorRequest {
   const known = [
     'odisha', 'odhisha', 'odisa', 'orissa', 'orisa', 'dhamra', 'puri', 'gopalpur', 'paradip', 'paradeep',
     'bengal', 'west bengal', 'westbengal', 'kolkata', 'calcutta', 'hooghly', 'sundarbans', 'sunderbans', 'digha', 'kakdwip', 'fraserganj',
-    'andhra', 'andhra pradesh', 'andhrapradesh', 'visakhapatnam', 'vizag', 'kakinada', 'machilipatnam', 'krishnapatnam',
-    'tamil nadu', 'tamilnadu', 'chennai', 'madras', 'kasimedu', 'tuticorin', 'thoothukudi', 'rameswaram', 'kanyakumari', 'cuddalore',
-    'kerala', 'kerla', 'cochin', 'kochi', 'ernakulam', 'kollam', 'vizhinjam', 'trivandrum', 'kannur', 'beypore', 'calicut',
+    'andhra', 'andhra pradesh', 'andhrapradesh', 'visakhapatnam', 'vishakhapatnam', 'vizag', 'waltair', 'kakinada', 'machilipatnam', 'masulipatnam', 'krishnapatnam', 'nizampatnam', 'bhavanapadu', 'pudimadaka',
+    'tamil nadu', 'tamilnadu', 'chennai', 'madras', 'kasimedu', 'tuticorin', 'thoothukudi', 'rameswaram', 'kanyakumari', 'cuddalore', 'nagapattinam', 'poompuhar',
+    'kerala', 'kerla', 'keralam', 'cochin', 'kochi', 'ernakulam', 'kollam', 'vizhinjam', 'trivandrum', 'thiruvananthapuram', 'kannur', 'beypore', 'calicut', 'kozhikode', 'munambam',
     'karnataka', 'karnatka', 'mangalore', 'mangaluru', 'malpe', 'udupi', 'karwar', 'tadri', 'honnavar',
-    'goa', 'panaji', 'panjim', 'vasco', 'cutbona',
+    'goa', 'panaji', 'panjim', 'vasco', 'cutbona', 'chapora',
     'maharashtra', 'maharastra', 'mumbai', 'bombay', 'sassoon', 'versova', 'ratnagiri', 'malvan',
-    'gujarat', 'gujrat', 'veraval', 'somnath', 'porbandar', 'okha', 'dwarka', 'mangrol',
+    'gujarat', 'gujrat', 'veraval', 'somnath', 'porbandar', 'okha', 'dwarka', 'mangrol', 'jafarabad',
     'lakshadweep', 'lakshdweep', 'kavaratti', 'agatti', 'minicoy',
-    'andaman', 'nicobar', 'port blair',
+    'andaman', 'nicobar', 'port blair', 'havelock', 'diglipur',
     'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur', 'bhopal', 'pune', 'lucknow', 'patna',
     'jaisalmer', 'jodhpur', 'udaipur', 'bikaner', 'ajmer', 'kota', 'agra', 'varanasi', 'gwalior', 'nashik'
   ];
-  for (const loc of known) {
-    if (q.includes(loc)) {
+
+  // Match using whole-word boundaries; sort by length descending so longer terms match first
+  const sortedKnown = [...known].sort((a, b) => b.length - a.length);
+  for (const loc of sortedKnown) {
+    const escaped = loc.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`(^|\\W)${escaped}(\\W|$)`, 'i');
+    if (regex.test(q)) {
       locName = loc.charAt(0).toUpperCase() + loc.slice(1);
       break;
     }
@@ -113,7 +118,7 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
     }
   }
 
-  const loc = planResult.location?.name || 'your coastal sector';
+  const loc = locRes?.harbor?.landing_center_name?.split(' (')[0] || locRes?.locationName || planResult.location?.name || 'your coastal sector';
   if (isSafe) {
     return `Yes, conditions look favorable for heading out near ${loc} tomorrow. Sea state and surface winds are well within safe operating limits, and ${pfzNote}. I have updated your dashboard title cards with the live weather, wind, wave, and tide telemetry, and centered the radar map on ${loc}.`;
   } else {

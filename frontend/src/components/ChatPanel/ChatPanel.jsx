@@ -96,7 +96,7 @@ export default function ChatPanel({
           (lower.includes('cochin') && (name.includes('cochin') || name.includes('kochi'))) ||
           (lower.includes('kochi') && (name.includes('cochin') || name.includes('kochi'))) ||
           (lower.includes('vizag') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
-          (lower.includes('visakhapatnam') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
+          ((lower.includes('visakhapatnam') || lower.includes('vishakhapatnam')) && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
           ((lower.includes('paradip') || lower.includes('paradeep')) && name.includes('paradip')) ||
           ((lower.includes('odisha') || lower.includes('odhisha') || lower.includes('orissa')) && (state.includes('odisha') || h.harbor_id === 41)) ||
           ((lower.includes('kerala') || lower.includes('kerla')) && (state.includes('kerala') || h.harbor_id === 19)) ||

@@ -62,12 +62,15 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
 
   vizag: 37,
   visakhapatnam: 37,
+  vishakhapatnam: 37,
+  waltair: 37,
   kakinada: 38,
   bhavanapadu: 39,
   pudimadaka: 40,
   krishnapatnam: 34,
   nizampatnam: 35,
   machilipatnam: 36,
+  masulipatnam: 36,
   andhra: 37,
   'andhra pradesh': 37,
 
@@ -169,6 +172,10 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export interface CoastalStateRef {
   stateName: string;
   primaryHarborId: number;
@@ -216,7 +223,11 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
 
     // Check coastal states first (e.g. Odisha, Kerala, Gujarat)
     const matchedState = COASTAL_STATE_REFS.find(cs =>
-      cs.aliases.some(alias => raw === alias || raw.includes(alias) || alias.includes(raw) || levenshtein(raw, alias) <= (alias.length <= 4 ? 1 : 2))
+      cs.aliases.some(alias =>
+        raw === alias ||
+        new RegExp(`(^|\\W)${escapeRegex(alias)}(\\W|$)`, 'i').test(raw) ||
+        (raw.length >= 4 && alias.length >= 4 && levenshtein(raw, alias) <= (alias.length <= 4 ? 1 : 2))
+      )
     );
 
     if (matchedState) {
@@ -243,7 +254,7 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
     let mappedId: number | undefined = REGIONAL_CITY_MAP[raw];
     if (!mappedId) {
       for (const [key, id] of Object.entries(REGIONAL_CITY_MAP)) {
-        if (raw === key || raw.includes(key) || key.includes(raw)) {
+        if (raw === key || new RegExp(`(^|\\W)${escapeRegex(key)}(\\W|$)`, 'i').test(raw)) {
           mappedId = id;
           break;
         }
@@ -289,7 +300,11 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
 
     // Fast-path inland check with fuzzy tolerance
     const isInland = INLAND_REGIONS.has(raw) ||
-      Array.from(INLAND_REGIONS).some(inland => raw.includes(inland) || inland.includes(raw) || levenshtein(raw, inland) <= (inland.length <= 4 ? 1 : 2));
+      Array.from(INLAND_REGIONS).some(inland =>
+        raw === inland ||
+        new RegExp(`(^|\\W)${escapeRegex(inland)}(\\W|$)`, 'i').test(raw) ||
+        (raw.length >= 4 && inland.length >= 4 && levenshtein(raw, inland) <= (inland.length <= 4 ? 1 : 2))
+      );
     if (isInland) {
       return {
         status: 'INLAND',
