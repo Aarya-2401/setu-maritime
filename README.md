@@ -1,4 +1,4 @@
-# SETU-ADAM01 (ORCA Final) — Integrated Maritime Decision Support Platform
+# SETU-ADAM01  — Integrated Maritime Decision Support Platform
 
 SETU-ADAM01 is an integrated marine intelligence platform engineered for real-time Indian maritime navigation, ocean safety nowcasting, Potential Fishing Zone (PFZ) advisory correlation, and geofenced sanctuary compliance. The system unites a high-density, zero-scroll executive React dashboard with a LangGraph multi-agent AI orchestration backend powered by Google Gemini and a 3NF relational MySQL database.
 
