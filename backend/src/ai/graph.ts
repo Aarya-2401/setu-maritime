@@ -33,7 +33,7 @@ export async function runOrca(query: string) {
           results: [],
           cardUpdates: [],
           mapUpdates: [],
-          answer: `${place} is an inland region with no maritime coast or marine fishing harbor. SETU-ADAM01 monitors coastal operations across India's 56 recognized fishing harbors. You can explore coastal sectors such as Gujarat, Maharashtra, Kerala, Tamil Nadu, Andhra Pradesh, or Odisha.`
+          answer: `${place} is an inland region with no maritime coast or marine fishing harbor. SETU-ADAM01 monitors coastal operations across India's 56 recognized fishing harbors. Try selecting a coastal harbor from the suggestions below.`
         };
       }
 
@@ -44,7 +44,7 @@ export async function runOrca(query: string) {
           results: [],
           cardUpdates: [],
           mapUpdates: [],
-          answer: `I could not find a recognized fishing harbor for "${p.location.name}". SETU-ADAM01 monitors 56 major fishing harbors across India. Please specify a coastal district, landing center, or maritime state.`
+          answer: `I could not find a recognized fishing harbor for "${p.location.name}". SETU-ADAM01 monitors 56 major fishing harbors across India. Try selecting a coastal harbor from the suggestions below.`
         };
       }
 
@@ -95,7 +95,7 @@ export async function runOrca(query: string) {
     .addNode('synthesize', async (s: State) => {
       // If answer was already set by inland/unknown checks, preserve it
       if (s.answer) return { answer: s.answer };
-      return { answer: await synthesize(s.query, s.plan, s.results) };
+      return { answer: await synthesize(s.query, s.plan, s.results, s.locationResolution) };
     })
     .addEdge(START, 'coordinate')
     .addEdge('coordinate', 'execute')

@@ -72,8 +72,12 @@ export function fallbackPlan(query: string): CoordinatorRequest {
   };
 }
 
-export function fallbackSynthesize(query: string, planResult: CoordinatorRequest, results: any[]): string {
-  const loc = planResult.location?.name || 'your coastal sector';
+export function fallbackSynthesize(query: string, planResult: CoordinatorRequest, results: any[], locRes?: any): string {
+  const isCoastalState = locRes?.status === 'COASTAL_STATE';
+  const stateName = locRes?.stateName || planResult.location?.name || 'your coastal sector';
+  const refHarborName = locRes?.harbor?.landing_center_name;
+  const otherHarbors = (locRes?.suggestions || []).slice(0, 3).join(', ');
+
   const alertResult = results.find(r => r.agent === 'marine-alert')?.data;
   const cycloneResult = results.find(r => r.agent === 'cyclone')?.data;
   const waveResult = results.find(r => r.agent === 'wave')?.data;
@@ -100,6 +104,16 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
     ? `INCOIS has identified active fishing grounds roughly ${pfzBest.distanceKm ? Math.round(pfzBest.distanceKm) + ' km' : '15-25 km'} offshore targeting ${pfzBest.targetSpecies || 'pelagic species'}`
     : `coastal waters are open with no severe hazard advisories`;
 
+  if (isCoastalState && refHarborName) {
+    const switchNote = otherHarbors ? ` You can also switch to other ${stateName} landing centers like ${otherHarbors}.` : '';
+    if (isSafe) {
+      return `${stateName} is a coastal maritime state. I have selected ${refHarborName} as your maritime reference point and centered the radar map. Conditions look favorable: sea state and surface winds are well within safe operating limits, and ${pfzNote}.${switchNote}`;
+    } else {
+      return `${stateName} is a coastal maritime state. I have selected ${refHarborName} as your reference point. Caution is advised because ${cautionReason}. I have updated your title cards with the latest telemetry.${switchNote}`;
+    }
+  }
+
+  const loc = planResult.location?.name || 'your coastal sector';
   if (isSafe) {
     return `Yes, conditions look favorable for heading out near ${loc} tomorrow. Sea state and surface winds are well within safe operating limits, and ${pfzNote}. I have updated your dashboard title cards with the live weather, wind, wave, and tide telemetry, and centered the radar map on ${loc}.`;
   } else {
@@ -118,11 +132,12 @@ export async function plan(query: string): Promise<CoordinatorRequest> {
   }
 }
 
-export async function synthesize(query: string, planResult: CoordinatorRequest, results: any[]) {
-  const fb = fallbackSynthesize(query, planResult, results);
+export async function synthesize(query: string, planResult: CoordinatorRequest, results: any[], locRes?: any) {
+  const fb = fallbackSynthesize(query, planResult, results, locRes);
   try {
     const model = createGemini();
     const compact = results.map(r => ({ agent: r.agent, status: r.status, data: r.data, assessment: r.assessment })).filter(Boolean);
+    const isCoastalState = locRes?.status === 'COASTAL_STATE';
     const prompt = `You are SETU-ADAM01, an intelligent maritime operations co-pilot and tactical advisor.
 CRITICAL ZERO-EMOJI POLICY: Never use emojis anywhere in your response.
 COMMUNICATION STYLE:
@@ -132,9 +147,11 @@ COMMUNICATION STYLE:
 - Do NOT dump raw numerical sensor tables (exact temperatures, wind speeds, wave heights, or tide data). The user's screen already features dedicated live title cards (Weather, Wind, Waves, Tides) that display those numbers.
 - Mention qualitative conditions (e.g., calm seas, light swells, comfortable breeze) and highlight active INCOIS fishing hotspots and target species if relevant.
 - Reassure the user naturally that their title cards have been updated with the live readings and the radar map has centered on their location.
+${isCoastalState ? `- IMPORTANT: The user specified a coastal maritime state (${locRes.stateName}). Explicitly state that ${locRes.stateName} is a coastal maritime state, that you have selected ${locRes.harbor?.landing_center_name} as the reference point, and mention that they can switch to other supported state landing centers.` : ''}
 
 User Query: "${query}"
 Target Area / Plan: ${JSON.stringify(planResult)}
+Location Resolution: ${JSON.stringify(locRes || {})}
 Telemetry & Agent Findings: ${JSON.stringify(compact)}`;
 
     const promise = model.invoke(prompt)

@@ -125,8 +125,8 @@ export default function ChatPanel({
     try {
       const aiResponse = await askOrcaAI(trimmed)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        // Contract enforcement: Only update harbor and map if SUPPORTED
-        if (aiResponse.locationStatus === 'SUPPORTED') {
+        // Contract enforcement: Only update harbor and map if SUPPORTED or COASTAL_STATE
+        if (aiResponse.locationStatus === 'SUPPORTED' || aiResponse.locationStatus === 'COASTAL_STATE') {
           if (aiResponse.harborId && onSelectHarbor) {
             onSelectHarbor(aiResponse.harborId)
           } else if (aiResponse.resolvedHarbor?.harbor_id && onSelectHarbor) {
@@ -150,6 +150,7 @@ export default function ChatPanel({
           role: 'assistant',
           text: aiResponse.answer,
           time: timeNow(),
+          suggestions: aiResponse.suggestions || []
         }
         onAddMessage(reply)
         setTyping(false)
@@ -284,6 +285,23 @@ export default function ChatPanel({
           <div key={m.id} className={`chat-msg chat-msg--${m.role}`}>
             <div className="chat-msg__bubble">
               <p>{m.text}</p>
+              {m.suggestions && m.suggestions.length > 0 && (
+                <div className="chat-msg__suggestions">
+                  <span className="chat-msg__suggestions-label">Try a supported location:</span>
+                  <div className="chat-msg__suggestions-chips">
+                    {m.suggestions.slice(0, 5).map((sug, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        className="chat-msg__suggestion-btn"
+                        onClick={() => sendMessage(sug)}
+                      >
+                        {sug}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <span className="chat-msg__time">{m.time}</span>
             </div>
           </div>

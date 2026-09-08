@@ -169,14 +169,39 @@ function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
+export interface CoastalStateRef {
+  stateName: string;
+  primaryHarborId: number;
+  aliases: string[];
+}
+
+export const COASTAL_STATE_REFS: CoastalStateRef[] = [
+  { stateName: 'Odisha', primaryHarborId: 41, aliases: ['odisha', 'odhisha', 'odisa', 'orissa', 'orisa', 'udisa'] },
+  { stateName: 'Kerala', primaryHarborId: 19, aliases: ['kerala', 'kerla', 'keralam', 'malabar'] },
+  { stateName: 'Gujarat', primaryHarborId: 1, aliases: ['gujarat', 'gujrat', 'saurashtra', 'kutch'] },
+  { stateName: 'Maharashtra', primaryHarborId: 6, aliases: ['maharashtra', 'maharastra', 'konkan'] },
+  { stateName: 'Goa', primaryHarborId: 12, aliases: ['goa', 'panaji', 'panjim'] },
+  { stateName: 'Karnataka', primaryHarborId: 14, aliases: ['karnataka', 'karnatka', 'canara'] },
+  { stateName: 'Tamil Nadu', primaryHarborId: 30, aliases: ['tamil nadu', 'tamilnadu', 'coromandel'] },
+  { stateName: 'Andhra Pradesh', primaryHarborId: 37, aliases: ['andhra pradesh', 'andhrapradesh', 'andhra', 'seemandhra'] },
+  { stateName: 'West Bengal', primaryHarborId: 47, aliases: ['west bengal', 'westbengal', 'bengal'] },
+  { stateName: 'Lakshadweep', primaryHarborId: 49, aliases: ['lakshadweep', 'lakshdweep', 'laccadive'] },
+  { stateName: 'Andaman & Nicobar', primaryHarborId: 52, aliases: ['andaman & nicobar', 'andaman and nicobar', 'andaman', 'nicobar'] }
+];
+
 export interface LocationResolution {
-  status: 'SUPPORTED' | 'INLAND' | 'UNKNOWN';
+  status: 'SUPPORTED' | 'COASTAL_STATE' | 'INLAND' | 'UNKNOWN';
   locationName?: string;
+  stateName?: string;
   harbor?: any;
+  referenceHarbor?: any;
+  stateHarbors?: any[];
   suggestions?: string[];
 }
 
 export async function resolveLocation(location?: { name?: string; harborId?: number; latitude?: number; longitude?: number }): Promise<LocationResolution> {
+  const fallbackSuggestions = ['Veraval', 'Mumbai', 'Kochi', 'Paradip', 'Visakhapatnam', 'Chennai'];
+
   // 1. Direct ID lookup
   if (location?.harborId) {
     const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [location.harborId]);
@@ -189,7 +214,32 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
   if (location?.name) {
     const raw = location.name.toLowerCase().trim();
 
-    // Check regional alias dictionary first (e.g. Bombay -> Mumbai, Cochin -> Kochi)
+    // Check coastal states first (e.g. Odisha, Kerala, Gujarat)
+    const matchedState = COASTAL_STATE_REFS.find(cs =>
+      cs.aliases.some(alias => raw === alias || raw.includes(alias) || alias.includes(raw) || levenshtein(raw, alias) <= (alias.length <= 4 ? 1 : 2))
+    );
+
+    if (matchedState) {
+      const [stateRows]: any = await pool.query(
+        'SELECT * FROM dim_fishing_harbors WHERE state LIKE ? ORDER BY harbor_id ASC',
+        [`%${matchedState.stateName}%`]
+      );
+      const refHarbor = stateRows.find((r: any) => r.harbor_id === matchedState.primaryHarborId) || stateRows[0];
+      const otherHarbors = stateRows
+        .filter((r: any) => r.harbor_id !== refHarbor?.harbor_id)
+        .map((r: any) => r.landing_center_name.split(' (')[0]);
+      return {
+        status: 'COASTAL_STATE',
+        locationName: matchedState.stateName,
+        stateName: matchedState.stateName,
+        harbor: refHarbor,
+        referenceHarbor: refHarbor,
+        stateHarbors: stateRows,
+        suggestions: otherHarbors.length > 0 ? otherHarbors : fallbackSuggestions
+      };
+    }
+
+    // Check specific harbor / regional city alias dictionary (e.g. Bombay -> Mumbai, Cochin -> Kochi)
     let mappedId: number | undefined = REGIONAL_CITY_MAP[raw];
     if (!mappedId) {
       for (const [key, id] of Object.entries(REGIONAL_CITY_MAP)) {
@@ -206,19 +256,19 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       }
     }
 
-    // Database lookup: Check landing center name, district, or state
+    // Database lookup: Check landing center name or district
     const term = `%${location.name}%`;
     const [rows]: any = await pool.query(
       `SELECT * FROM dim_fishing_harbors 
-       WHERE landing_center_name LIKE ? OR district LIKE ? OR state LIKE ? 
-       ORDER BY (state LIKE ?) DESC, landing_center_name ASC LIMIT 1`,
-      [term, term, term, term]
+       WHERE landing_center_name LIKE ? OR district LIKE ? 
+       ORDER BY landing_center_name ASC LIMIT 1`,
+      [term, term]
     );
     if (rows.length) {
       return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
     }
 
-    // Fuzzy match against regional city/state aliases (handles typos like Odhisha, Kerla, Gujrat)
+    // Fuzzy match against regional harbor/city aliases
     let closestKey: string | null = null;
     let minDistance = 999;
     for (const key of Object.keys(REGIONAL_CITY_MAP)) {
@@ -245,7 +295,7 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
         status: 'INLAND',
         locationName: location.name,
         harbor: null,
-        suggestions: ['Gujarat', 'Maharashtra', 'Goa', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Andhra Pradesh', 'Odisha', 'West Bengal']
+        suggestions: fallbackSuggestions
       };
     }
 
@@ -254,7 +304,7 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       status: 'UNKNOWN',
       locationName: location.name,
       harbor: null,
-      suggestions: ['Gujarat', 'Maharashtra', 'Goa', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Andhra Pradesh', 'Odisha', 'West Bengal']
+      suggestions: fallbackSuggestions
     };
   }
 
@@ -275,7 +325,7 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
   return {
     status: 'UNKNOWN',
     harbor: null,
-    suggestions: ['Gujarat', 'Maharashtra', 'Goa', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Andhra Pradesh', 'Odisha', 'West Bengal']
+    suggestions: fallbackSuggestions
   };
 }
 

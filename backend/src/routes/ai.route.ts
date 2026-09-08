@@ -21,7 +21,7 @@ export function registerAiRoute(app: Express) {
         agentsExecuted: state.plan?.requestedAgents || [],
         plan: state.plan,
         cardUpdates: state.cardUpdates || [],
-        mapUpdate: locStatus === 'SUPPORTED' ? (latestMapUpdate || (state.resolvedHarbor ? {
+        mapUpdate: (locStatus === 'SUPPORTED' || locStatus === 'COASTAL_STATE') ? (latestMapUpdate || (state.resolvedHarbor ? {
           action: 'recenter',
           harborId: state.resolvedHarbor.harbor_id,
           location: {
