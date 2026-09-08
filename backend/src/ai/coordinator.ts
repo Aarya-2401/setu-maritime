@@ -31,15 +31,35 @@ export function fallbackPlan(query: string): CoordinatorRequest {
 
   let locName: string | undefined;
   const known = [
-    'kolkata', 'calcutta', 'hooghly', 'sundarbans', 'sunderbans', 'digha', 'kakdwip', 'bengal',
-    'mumbai', 'cochin', 'kochi', 'chennai', 'visakhapatnam', 'vizag', 'paradip', 'kerala',
-    'mangalore', 'goa', 'veraval', 'tuticorin', 'porbandar', 'kollam', 'sasoon', 'kasimedu',
-    'puri', 'kanyakumari', 'port blair', 'andaman'
+    'odisha', 'orissa', 'dhamra', 'puri', 'gopalpur', 'paradip', 'paradeep',
+    'bengal', 'west bengal', 'kolkata', 'calcutta', 'hooghly', 'sundarbans', 'sunderbans', 'digha', 'kakdwip', 'fraserganj',
+    'andhra', 'andhra pradesh', 'visakhapatnam', 'vizag', 'kakinada', 'machilipatnam', 'krishnapatnam',
+    'tamil nadu', 'chennai', 'madras', 'kasimedu', 'tuticorin', 'thoothukudi', 'rameswaram', 'kanyakumari', 'cuddalore',
+    'kerala', 'cochin', 'kochi', 'ernakulam', 'kollam', 'vizhinjam', 'trivandrum', 'kannur', 'beypore', 'calicut',
+    'karnataka', 'mangalore', 'mangaluru', 'malpe', 'udupi', 'karwar', 'tadri', 'honnavar',
+    'goa', 'panaji', 'panjim', 'vasco', 'cutbona',
+    'maharashtra', 'mumbai', 'bombay', 'sassoon', 'versova', 'ratnagiri', 'malvan',
+    'gujarat', 'veraval', 'somnath', 'porbandar', 'okha', 'dwarka', 'mangrol',
+    'lakshadweep', 'kavaratti', 'agatti', 'minicoy',
+    'andaman', 'nicobar', 'port blair',
+    'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur', 'bhopal', 'pune', 'lucknow', 'patna'
   ];
   for (const loc of known) {
     if (q.includes(loc)) {
       locName = loc.charAt(0).toUpperCase() + loc.slice(1);
       break;
+    }
+  }
+
+  // Extract location after prepositions if not found in known list (e.g. "near atlantis", "in nagpur", "around shimla")
+  if (!locName) {
+    const match = q.match(/\b(?:in|near|around|at|for|from|off)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
+    if (match && match[1]) {
+      const candidate = match[1].trim();
+      const skipWords = new Set(['fishing', 'sailing', 'departure', 'port', 'sea', 'ocean', 'today', 'tomorrow', 'now', 'morning', 'the', 'a', 'an']);
+      if (!skipWords.has(candidate)) {
+        locName = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+      }
     }
   }
 

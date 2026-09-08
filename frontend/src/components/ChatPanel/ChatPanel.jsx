@@ -74,7 +74,7 @@ export default function ChatPanel({
     setInput('')
     setTyping(true)
 
-    // Proactively detect harbor/location mentions in user prompt
+    // Proactively detect harbor/location mentions in user prompt against loaded 56 harbors
     const lower = trimmed.toLowerCase()
     let detectedHarbor = null
     if (harbors && harbors.length > 0) {
@@ -85,12 +85,12 @@ export default function ChatPanel({
         return (
           (lower.includes(dist) && dist.length > 3) ||
           (lower.includes(name) && name.length > 3) ||
-          (lower.includes('kolkata') && (h.harbor_id === 47 || name.includes('sultanpur') || state.includes('bengal'))) ||
-          (lower.includes('calcutta') && (h.harbor_id === 47 || name.includes('sultanpur') || state.includes('bengal'))) ||
-          (lower.includes('hooghly') && (h.harbor_id === 47 || name.includes('sultanpur') || state.includes('bengal'))) ||
-          (lower.includes('sundarban') && (h.harbor_id === 48 || name.includes('fraserganj') || state.includes('bengal'))) ||
-          (lower.includes('bengal') && state.includes('bengal')) ||
-          (lower.includes('digha') && (h.harbor_id === 45 || name.includes('digha'))) ||
+          (lower.includes(state) && state.length > 3) ||
+          (lower.includes('kolkata') && (h.harbor_id === 47 || state.includes('bengal'))) ||
+          (lower.includes('calcutta') && (h.harbor_id === 47 || state.includes('bengal'))) ||
+          (lower.includes('hooghly') && (h.harbor_id === 47 || state.includes('bengal'))) ||
+          (lower.includes('sundarban') && (h.harbor_id === 48 || state.includes('bengal'))) ||
+          (lower.includes('digha') && h.harbor_id === 45) ||
           (lower.includes('chennai') && (name.includes('chennai') || dist.includes('chennai') || name.includes('kasimedu'))) ||
           (lower.includes('mumbai') && (name.includes('mumbai') || name.includes('sassoon') || dist.includes('mumbai'))) ||
           (lower.includes('cochin') && (name.includes('cochin') || name.includes('kochi'))) ||
@@ -98,6 +98,8 @@ export default function ChatPanel({
           (lower.includes('vizag') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
           (lower.includes('visakhapatnam') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
           (lower.includes('paradip') && name.includes('paradip')) ||
+          (lower.includes('dhamra') && name.includes('dhamra')) ||
+          (lower.includes('puri') && (dist.includes('puri') || name.includes('puri'))) ||
           (lower.includes('goa') && (state.includes('goa') || name.includes('goa')))
         )
       })
@@ -118,28 +120,25 @@ export default function ChatPanel({
     try {
       const aiResponse = await askOrcaAI(trimmed)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        // Sync harbor selection across dashboard title cards
-        if (aiResponse.resolvedHarbor?.harbor_id && onSelectHarbor) {
-          onSelectHarbor(aiResponse.resolvedHarbor.harbor_id)
+        // Contract enforcement: Only update harbor and map if SUPPORTED
+        if (aiResponse.locationStatus === 'SUPPORTED') {
+          if (aiResponse.harborId && onSelectHarbor) {
+            onSelectHarbor(aiResponse.harborId)
+          } else if (aiResponse.resolvedHarbor?.harbor_id && onSelectHarbor) {
+            onSelectHarbor(aiResponse.resolvedHarbor.harbor_id)
+          }
+
+          if (aiResponse.mapUpdate?.location && onMapFocus) {
+            onMapFocus({
+              lat: Number(aiResponse.mapUpdate.location.latitude),
+              lon: Number(aiResponse.mapUpdate.location.longitude),
+              zoom: aiResponse.mapUpdate.zoom || 11,
+              label: aiResponse.mapUpdate.location.name,
+              timestamp: Date.now()
+            })
+          }
         }
-        // Sync map focus target
-        if (aiResponse.mapUpdate?.location && onMapFocus) {
-          onMapFocus({
-            lat: Number(aiResponse.mapUpdate.location.latitude),
-            lon: Number(aiResponse.mapUpdate.location.longitude),
-            zoom: aiResponse.mapUpdate.zoom || 11,
-            label: aiResponse.mapUpdate.location.name,
-            timestamp: Date.now()
-          })
-        } else if (aiResponse.resolvedHarbor && onMapFocus) {
-          onMapFocus({
-            lat: Number(aiResponse.resolvedHarbor.latitude),
-            lon: Number(aiResponse.resolvedHarbor.longitude),
-            zoom: 11,
-            label: aiResponse.resolvedHarbor.landing_center_name,
-            timestamp: Date.now()
-          })
-        }
+        // If INLAND or UNKNOWN, mapUpdate is null and map camera remains untouched
 
         const reply = {
           id: getUUID(),

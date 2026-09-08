@@ -7,23 +7,30 @@ export function registerAiRoute(app: Express) {
       const query = String(req.body?.query || '').trim();
       if (!query) return res.status(400).json({ success:false, error:'query is required' });
       const state:any = await runOrca(query);
+      const locStatus = state.locationResolution?.status || (state.resolvedHarbor ? 'SUPPORTED' : 'UNKNOWN');
+      const latestMapUpdate = (state.mapUpdates || []).at(-1);
+
       res.json({
         success: true,
         answer: state.answer,
-        intent: state.plan?.intent,
+        locationStatus: locStatus,
+        location: state.locationResolution?.locationName || state.resolvedHarbor?.landing_center_name || null,
+        harborId: state.resolvedHarbor?.harbor_id || null,
         resolvedHarbor: state.resolvedHarbor,
+        suggestions: state.locationResolution?.suggestions || [],
         agentsExecuted: state.plan?.requestedAgents || [],
         plan: state.plan,
         cardUpdates: state.cardUpdates || [],
-        mapUpdate: (state.mapUpdates || []).at(-1) || (state.resolvedHarbor ? {
+        mapUpdate: locStatus === 'SUPPORTED' ? (latestMapUpdate || (state.resolvedHarbor ? {
           action: 'recenter',
+          harborId: state.resolvedHarbor.harbor_id,
           location: {
             name: state.resolvedHarbor.landing_center_name,
             latitude: state.resolvedHarbor.latitude,
             longitude: state.resolvedHarbor.longitude
           },
           zoom: 11
-        } : null),
+        } : null)) : null,
         agentResults: state.results || [],
         timestamp: new Date().toISOString()
       });

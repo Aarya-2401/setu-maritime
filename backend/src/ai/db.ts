@@ -121,19 +121,39 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
   nicobar: 52
 };
 
-export async function resolveHarbor(location?: { name?: string; harborId?: number; latitude?: number; longitude?: number }) {
+export const INLAND_REGIONS = new Set([
+  'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur',
+  'bhopal', 'indore', 'patna', 'lucknow', 'kanpur', 'chandigarh', 'pune', 'gurgaon',
+  'noida', 'ranchi', 'raipur', 'dehradun', 'shimla', 'srinagar', 'amritsar', 'ludhiana',
+  'punjab', 'haryana', 'rajasthan', 'madhya pradesh', 'uttar pradesh', 'bihar',
+  'jharkhand', 'chhattisgarh', 'telangana', 'uttarakhand', 'himachal pradesh', 'assam'
+]);
+
+export interface LocationResolution {
+  status: 'SUPPORTED' | 'INLAND' | 'UNKNOWN';
+  locationName?: string;
+  harbor?: any;
+  suggestions?: string[];
+}
+
+export async function resolveLocation(location?: { name?: string; harborId?: number; latitude?: number; longitude?: number }): Promise<LocationResolution> {
+  // 1. Direct ID lookup
   if (location?.harborId) {
     const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [location.harborId]);
-    if (rows.length) return rows[0];
+    if (rows.length) {
+      return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
+    }
   }
+
+  // 2. Name-based lookup
   if (location?.name) {
     const raw = location.name.toLowerCase().trim();
 
-    // Check regional city/metro alias dictionary first
+    // Check regional alias dictionary first (e.g. Bombay -> Mumbai, Cochin -> Kochi)
     let mappedId: number | undefined = REGIONAL_CITY_MAP[raw];
     if (!mappedId) {
       for (const [key, id] of Object.entries(REGIONAL_CITY_MAP)) {
-        if (raw.includes(key) || key.includes(raw)) {
+        if (raw === key || raw.includes(key) || key.includes(raw)) {
           mappedId = id;
           break;
         }
@@ -141,26 +161,67 @@ export async function resolveHarbor(location?: { name?: string; harborId?: numbe
     }
     if (mappedId) {
       const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [mappedId]);
-      if (mRows.length) return mRows[0];
+      if (mRows.length) {
+        return { status: 'SUPPORTED', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+      }
     }
 
+    // Database lookup: Check landing center name, district, or state
     const term = `%${location.name}%`;
     const [rows]: any = await pool.query(
-      `SELECT * FROM dim_fishing_harbors WHERE landing_center_name LIKE ? OR district LIKE ? OR state LIKE ? ORDER BY landing_center_name LIMIT 1`,
-      [term, term, term]
+      `SELECT * FROM dim_fishing_harbors 
+       WHERE landing_center_name LIKE ? OR district LIKE ? OR state LIKE ? 
+       ORDER BY (state LIKE ?) DESC, landing_center_name ASC LIMIT 1`,
+      [term, term, term, term]
     );
-    if (rows.length) return rows[0];
+    if (rows.length) {
+      return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
+    }
+
+    // Fast-path inland check
+    const isInland = INLAND_REGIONS.has(raw) || Array.from(INLAND_REGIONS).some(inland => raw.includes(inland));
+    if (isInland) {
+      return {
+        status: 'INLAND',
+        locationName: location.name,
+        harbor: null,
+        suggestions: ['Gujarat', 'Maharashtra', 'Goa', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Andhra Pradesh', 'Odisha', 'West Bengal']
+      };
+    }
+
+    // Unrecognized location
+    return {
+      status: 'UNKNOWN',
+      locationName: location.name,
+      harbor: null,
+      suggestions: ['Gujarat', 'Maharashtra', 'Goa', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Andhra Pradesh', 'Odisha', 'West Bengal']
+    };
   }
+
+  // 3. Coordinate distance lookup
   if (location?.latitude != null && location?.longitude != null) {
     const [rows]: any = await pool.query(
-      `SELECT *, (111.32 * SQRT(POW(latitude-?,2) + POW((longitude-?)*COS(RADIANS(?)),2))) AS distance_km FROM dim_fishing_harbors ORDER BY distance_km LIMIT 1`,
+      `SELECT *, (111.32 * SQRT(POW(latitude-?,2) + POW((longitude-?)*COS(RADIANS(?)),2))) AS distance_km 
+       FROM dim_fishing_harbors 
+       ORDER BY distance_km LIMIT 1`,
       [location.latitude, location.longitude, location.latitude]
     );
-    if (rows.length) return rows[0];
+    if (rows.length && rows[0].distance_km < 150) {
+      return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
+    }
   }
-  const defaultId = Number(process.env.DEFAULT_HARBOR_ID || 1);
-  const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [defaultId]);
-  return rows[0] || null;
+
+  // Absolutely NO default harbor fallback (e.g. no defaulting to Gujarat/Veraval)
+  return {
+    status: 'UNKNOWN',
+    harbor: null,
+    suggestions: ['Gujarat', 'Maharashtra', 'Goa', 'Karnataka', 'Kerala', 'Tamil Nadu', 'Andhra Pradesh', 'Odisha', 'West Bengal']
+  };
+}
+
+export async function resolveHarbor(location?: { name?: string; harborId?: number; latitude?: number; longitude?: number }) {
+  const res = await resolveLocation(location);
+  return res.harbor || null;
 }
 
 export function firstDefined(row: any, keys: string[], fallback: any = null) {
