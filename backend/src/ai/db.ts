@@ -267,13 +267,34 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       }
     }
 
-    // Database lookup: Check landing center name or district
-    const term = `%${location.name}%`;
+    // Fast-path inland check with fuzzy tolerance (check before database query to avoid substring collisions)
+    const isInland = INLAND_REGIONS.has(raw) ||
+      Array.from(INLAND_REGIONS).some(inland =>
+        raw === inland ||
+        new RegExp(`(^|\\W)${escapeRegex(inland)}(\\W|$)`, 'i').test(raw) ||
+        (raw.length >= 4 && inland.length >= 4 && levenshtein(raw, inland) <= (inland.length <= 4 ? 1 : 2))
+      );
+    if (isInland) {
+      return {
+        status: 'INLAND',
+        locationName: location.name,
+        harbor: null,
+        suggestions: fallbackSuggestions
+      };
+    }
+
+    // Database lookup: Check landing center name or district using whole word boundaries
     const [rows]: any = await pool.query(
       `SELECT * FROM dim_fishing_harbors 
-       WHERE landing_center_name LIKE ? OR district LIKE ? 
+       WHERE landing_center_name = ?
+          OR landing_center_name LIKE CONCAT(?, ' %')
+          OR landing_center_name LIKE CONCAT('% ', ?, ' %')
+          OR landing_center_name LIKE CONCAT('% ', ?)
+          OR district = ?
+          OR district LIKE CONCAT(?, ' %')
+          OR district LIKE CONCAT('% ', ?)
        ORDER BY landing_center_name ASC LIMIT 1`,
-      [term, term]
+      [location.name, location.name, location.name, location.name, location.name, location.name, location.name]
     );
     if (rows.length) {
       return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
@@ -296,22 +317,6 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       if (mRows.length) {
         return { status: 'SUPPORTED', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
       }
-    }
-
-    // Fast-path inland check with fuzzy tolerance
-    const isInland = INLAND_REGIONS.has(raw) ||
-      Array.from(INLAND_REGIONS).some(inland =>
-        raw === inland ||
-        new RegExp(`(^|\\W)${escapeRegex(inland)}(\\W|$)`, 'i').test(raw) ||
-        (raw.length >= 4 && inland.length >= 4 && levenshtein(raw, inland) <= (inland.length <= 4 ? 1 : 2))
-      );
-    if (isInland) {
-      return {
-        status: 'INLAND',
-        locationName: location.name,
-        harbor: null,
-        suggestions: fallbackSuggestions
-      };
     }
 
     // Unrecognized location

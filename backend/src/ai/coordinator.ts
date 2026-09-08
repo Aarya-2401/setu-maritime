@@ -132,7 +132,8 @@ export async function plan(query: string): Promise<CoordinatorRequest> {
     const model: any = createGemini().withStructuredOutput(coordinatorSchema as any);
     const prompt = `You are ORCA's Coordinator Agent for a marine decision-support system. Route the user's request to the minimum set of specialized agents needed. Available agents: ${AGENTS.join(', ')}. Extract location, time range, species and operation when present. Return only schema. User query: ${query}`;
     return await withTimeout(model.invoke(prompt), 8000, fb);
-  } catch (err) {
+  } catch (err: any) {
+    console.warn('Gemini plan error:', err?.message || err);
     return fb;
   }
 }
@@ -162,7 +163,8 @@ Telemetry & Agent Findings: ${JSON.stringify(compact)}`;
     const promise = model.invoke(prompt)
       .then((msg: any) => typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content));
     return await withTimeout(promise, 10000, fb);
-  } catch (err) {
+  } catch (err: any) {
+    console.warn('Gemini synthesize error:', err?.message || err);
     return fb;
   }
 }
