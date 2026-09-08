@@ -281,31 +281,39 @@ export default function ChatPanel({
       )}
 
       <div className="chat-panel__messages" ref={scrollRef}>
-        {messages && messages.map((m) => (
-          <div key={m.id} className={`chat-msg chat-msg--${m.role}`}>
-            <div className="chat-msg__bubble">
-              <p>{m.text}</p>
-              {m.suggestions && m.suggestions.length > 0 && (
-                <div className="chat-msg__suggestions">
-                  <span className="chat-msg__suggestions-label">Try a supported location:</span>
-                  <div className="chat-msg__suggestions-chips">
-                    {m.suggestions.slice(0, 5).map((sug, idx) => (
-                      <button
-                        key={idx}
-                        type="button"
-                        className="chat-msg__suggestion-btn"
-                        onClick={() => sendMessage(sug)}
-                      >
-                        {sug}
-                      </button>
-                    ))}
+        {messages && messages.map((m) => {
+          const suggestionsList = (m.suggestions && m.suggestions.length > 0)
+            ? m.suggestions
+            : (m.text && (m.text.includes('suggestions below') || m.text.includes('inland region') || m.text.includes('could not find a recognized fishing harbor') || m.text.includes('coastal maritime state')))
+            ? ['Veraval', 'Mumbai', 'Kochi', 'Paradip', 'Visakhapatnam', 'Chennai']
+            : []
+
+          return (
+            <div key={m.id} className={`chat-msg chat-msg--${m.role}`}>
+              <div className="chat-msg__bubble">
+                <p>{m.text}</p>
+                {suggestionsList && suggestionsList.length > 0 && (
+                  <div className="chat-msg__suggestions">
+                    <span className="chat-msg__suggestions-label">Try a supported location:</span>
+                    <div className="chat-msg__suggestions-chips">
+                      {suggestionsList.slice(0, 5).map((sug, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          className="chat-msg__suggestion-btn"
+                          onClick={() => sendMessage(sug)}
+                        >
+                          {sug}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
-              <span className="chat-msg__time">{m.time}</span>
+                )}
+                <span className="chat-msg__time">{m.time}</span>
+              </div>
             </div>
-          </div>
-        ))}
+          )
+        })}
 
         {typing && (
           <div className="chat-msg chat-msg--assistant">
