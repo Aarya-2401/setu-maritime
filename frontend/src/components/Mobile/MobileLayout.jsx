@@ -6,6 +6,7 @@ import {
   IconCloud,
   IconWind,
   IconWave,
+  IconTide,
   IconSun,
   IconSend,
   IconHome,
@@ -17,12 +18,54 @@ import {
   IconMaximize,
   IconMinimize
 } from '../Icons'
+import DetailModal from '../Modal/DetailModal'
 import { detectInlandLocation } from '../../data/inlandDetector'
 import { askOrcaAI } from '../../services/aiService'
 import { QUICK_PROMPTS } from '../../data/mockData'
 import { calculateETA } from '../../data/decisionLogic'
 import { getUNLocode, getFormattedHarborTag } from '../../data/harborCodes'
 import './MobileLayout.css'
+
+const WIND_DIRS = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
+
+function degToCompass(deg) {
+  if (deg == null) return 'Direction unavailable'
+  const idx = Math.round(deg / 45) % 8
+  return WIND_DIRS[idx]
+}
+
+function getBeaufortScale(kmph) {
+  if (kmph == null || kmph === '--' || isNaN(kmph)) return null
+  const speed = Number(kmph)
+  if (speed < 1) return { num: 0, desc: 'Calm', effect: 'Sea like a mirror' }
+  if (speed <= 5) return { num: 1, desc: 'Light air', effect: 'Ripples with appearance of scales' }
+  if (speed <= 11) return { num: 2, desc: 'Light breeze', effect: 'Small wavelets, crests glassy' }
+  if (speed <= 19) return { num: 3, desc: 'Gentle breeze', effect: 'Large wavelets, scattered whitecaps' }
+  if (speed <= 28) return { num: 4, desc: 'Moderate breeze', effect: 'Small waves, fairly frequent whitecaps' }
+  if (speed <= 38) return { num: 5, desc: 'Fresh breeze', effect: 'Moderate waves, many whitecaps' }
+  if (speed <= 49) return { num: 6, desc: 'Strong breeze', effect: 'Large waves, extensive white foam crests' }
+  return { num: 7, desc: 'High wind / Gale', effect: 'Sea heaps up, white foam streaks' }
+}
+
+function formatTideTime(dtStr) {
+  if (!dtStr) return '--'
+  try {
+    const d = new Date(dtStr)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
+  } catch {
+    return dtStr
+  }
+}
+
+function formatTideDate(dtStr) {
+  if (!dtStr) return '--'
+  try {
+    const d = new Date(dtStr)
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  } catch {
+    return dtStr
+  }
+}
 
 function getMessageUUID() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -43,6 +86,7 @@ export default function MobileLayout({
   harbors,
   onSelectHarbor,
   safetyData,
+  safetyHistory,
   assessment,
   onOpenAssessment,
   loading,
@@ -63,6 +107,7 @@ export default function MobileLayout({
   onMapFocus
 }) {
   const [activeNav, setActiveNav] = useState('home')
+  const [activeModal, setActiveModal] = useState(null)
   const [chatInput, setChatInput] = useState('')
   const [typing, setTyping] = useState(false)
   const [currentTime, setCurrentTime] = useState(() => new Date())
@@ -108,20 +153,49 @@ export default function MobileLayout({
   }, [userLocation, harbor])
 
   // Telemetry metric formatting
+  const locationName = harbor?.landing_center_name || 'Coastal Station'
   const airTemp = safetyData?.air_temp_celsius != null ? Math.round(safetyData.air_temp_celsius) : null
   const tempVal = airTemp != null ? `${airTemp} °C` : '-- °C'
+  const pressureVal = safetyData?.surface_pressure_hpa != null ? `${Number(safetyData.surface_pressure_hpa).toFixed(0)} hPa` : '-- hPa'
+  const visibilityVal = safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : '-- km'
 
   const windKnots =
     safetyData?.wind_speed_kmph != null
       ? Math.round(Number(safetyData.wind_speed_kmph) * 0.539957)
       : null
   const windVal = windKnots != null ? `${windKnots} kn` : '-- kn'
+  const windSpeedKmph = safetyData?.wind_speed_kmph != null ? Math.round(safetyData.wind_speed_kmph) : null
+  const gustsMps = safetyData?.wind_gust_mps
+  const gustsKmph = gustsMps != null ? Math.round(gustsMps * 3.6) : null
+  const gustsText = gustsKmph != null ? `${gustsKmph} km/h` : '--'
+  const windRotation = safetyData?.wind_direction_deg != null ? Number(safetyData.wind_direction_deg) : null
+  const beaufort = windSpeedKmph != null ? getBeaufortScale(windSpeedKmph) : null
 
   const waveHeight =
     safetyData?.significant_wave_height_m != null
       ? Number(safetyData.significant_wave_height_m).toFixed(1)
       : null
   const waveVal = waveHeight != null ? `${waveHeight} m` : '-- m'
+  const swell = safetyData?.swell_wave_height_m != null ? Number(safetyData.swell_wave_height_m) : null
+  const seaState = safetyData?.wmo_sea_state_desc || '--'
+
+  // Tide telemetry
+  const highTide = tides && tides.length > 0
+    ? tides.filter((t) => t.tide_phase === 'HIGH' || t.tide_phase === 'H')[0] ||
+      tides.reduce((a, b) => (Number(b.tide_height_meters) > Number(a.tide_height_meters) ? b : a))
+    : null
+
+  const lowTide = tides && tides.length > 0
+    ? tides.filter((t) => t.tide_phase === 'LOW' || t.tide_phase === 'L')[0] ||
+      tides.reduce((a, b) => (Number(b.tide_height_meters) < Number(a.tide_height_meters) ? b : a))
+    : null
+
+  const currentTideHeight = tides && tides.length > 0 ? Number(tides[0].tide_height_meters) : null
+  const tideVal = currentTideHeight != null ? `${currentTideHeight.toFixed(1)} m` : '-- m'
+  const upcomingEvent = safetyData?.upcoming_tide_event || '--'
+  const isReference = Boolean(tideMeta?.isReferenceStation)
+  const referencePort = tideMeta?.referencePortName || (tides && tides.length > 0 ? tides[0].port_name : '')
+  const distanceKm = tideMeta?.distanceKm
 
   const timeVal = formatCurrentTime(currentTime)
   const dateVal = formatCurrentDate(currentTime)
@@ -432,56 +506,72 @@ export default function MobileLayout({
         </div>
       </header>
 
-      {/* 2. Four Telemetry Information Cards (Home Tab Only) */}
+      {/* 2. Four Telemetry Information Capsules (Home Tab Only) */}
       {activeNav === 'home' && (
-        <section className="mobile-telemetry-grid mobile-tab-view" aria-label="Harbor telemetry cards">
-          <div className="mobile-telemetry-card">
-            <div className="mobile-telemetry-card__top">
-              <span className="mobile-telemetry-card__icon">
-                <IconCloud size={14} color="#38bdf8" />
-              </span>
-              <span className="mobile-telemetry-card__value">{tempVal}</span>
-            </div>
-            <span className="mobile-telemetry-card__label">Air Temp</span>
-          </div>
-
-          <div
-            className="mobile-telemetry-card mobile-telemetry-card--interactive"
-            onClick={() => setActiveNav('alerts')}
-            title="Tap to view wind and safety analysis"
+        <section className="mobile-telemetry-capsules mobile-tab-view" aria-label="Harbor telemetry capsules">
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal('weather')}
+            title="Weather telemetry: tap for full observation details"
+            aria-label="View Weather Details"
           >
-            <div className="mobile-telemetry-card__top">
-              <span className="mobile-telemetry-card__icon">
-                <IconWind size={14} color="#38bdf8" />
-              </span>
-              <span className="mobile-telemetry-card__value">{windVal}</span>
+            <span className="mobile-capsule-icon">
+              <IconCloud size={14} color="#38bdf8" />
+            </span>
+            <div className="mobile-capsule-info">
+              <span className="mobile-capsule-val">{tempVal}</span>
+              <span className="mobile-capsule-lbl">Weather</span>
             </div>
-            <span className="mobile-telemetry-card__label">Wind Speed</span>
-          </div>
+          </button>
 
-          <div
-            className="mobile-telemetry-card mobile-telemetry-card--interactive"
-            onClick={() => setActiveNav('alerts')}
-            title="Tap to view wave height and safety analysis"
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal('wind')}
+            title="Wind dynamics: tap for Beaufort scale and advisory"
+            aria-label="View Wind Details"
           >
-            <div className="mobile-telemetry-card__top">
-              <span className="mobile-telemetry-card__icon">
-                <IconWave size={14} color="#38bdf8" />
-              </span>
-              <span className="mobile-telemetry-card__value">{waveVal}</span>
+            <span className="mobile-capsule-icon">
+              <IconWind size={14} color="#38bdf8" />
+            </span>
+            <div className="mobile-capsule-info">
+              <span className="mobile-capsule-val">{windVal}</span>
+              <span className="mobile-capsule-lbl">Wind</span>
             </div>
-            <span className="mobile-telemetry-card__label">Wave Height</span>
-          </div>
+          </button>
 
-          <div className="mobile-telemetry-card">
-            <div className="mobile-telemetry-card__top">
-              <span className="mobile-telemetry-card__icon">
-                <IconSun size={14} color="#f59e0b" />
-              </span>
-              <span className="mobile-telemetry-card__value">{timeVal}</span>
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal('waves')}
+            title="Wave and sea state: tap for hourly sequence and swell profile"
+            aria-label="View Waves Details"
+          >
+            <span className="mobile-capsule-icon">
+              <IconWave size={14} color="#38bdf8" />
+            </span>
+            <div className="mobile-capsule-info">
+              <span className="mobile-capsule-val">{waveVal}</span>
+              <span className="mobile-capsule-lbl">Waves</span>
             </div>
-            <span className="mobile-telemetry-card__label">{dateVal}</span>
-          </div>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal('tide')}
+            title="Tidal cycle: tap for harmonic predictions and high/low peaks"
+            aria-label="View Tide Details"
+          >
+            <span className="mobile-capsule-icon">
+              <IconTide size={14} color="#38bdf8" />
+            </span>
+            <div className="mobile-capsule-info">
+              <span className="mobile-capsule-val">{tideVal}</span>
+              <span className="mobile-capsule-lbl">Tide</span>
+            </div>
+          </button>
         </section>
       )}
 
@@ -847,6 +937,265 @@ export default function MobileLayout({
           <span>Chat</span>
         </button>
       </nav>
+
+      {/* 7. Interactive Telemetry Detail Modals (Identical to Desktop TopicCards) */}
+      {activeModal === 'weather' && (
+        <DetailModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          icon={<IconCloud size={18} color="#38bdf8" />}
+          title={`Coastal Weather Telemetry — ${locationName}`}
+        >
+          <div className="modal-grid-stats">
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Air Temperature</div>
+              <div className="modal-stat-box__val" style={{ color: '#38bdf8' }}>{tempVal}</div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Surface Pressure</div>
+              <div className="modal-stat-box__val" style={{ color: '#1fd1a8' }}>{pressureVal}</div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Visibility</div>
+              <div className="modal-stat-box__val" style={{ color: '#3ddc84' }}>{visibilityVal}</div>
+            </div>
+          </div>
+
+          <table className="modal-table">
+            <tbody>
+              <tr>
+                <td><strong>Landing Center / Harbor</strong></td>
+                <td>{locationName}</td>
+              </tr>
+              <tr>
+                <td><strong>Coastal Sector & State</strong></td>
+                <td>{harbor?.sector || '--'} · {harbor?.state || '--'}</td>
+              </tr>
+              <tr>
+                <td><strong>Regional Alert Status</strong></td>
+                <td>
+                  <span style={{ color: safetyData?.active_regional_alert_level ? '#1fd1a8' : '#94a3b8', fontWeight: 600 }}>
+                    {safetyData?.active_regional_alert_level || 'Unavailable'}
+                  </span>
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Composite Safety Rating</strong></td>
+                <td><strong>{safetyData?.composite_safety_rating || 'Unavailable'}</strong></td>
+              </tr>
+              <tr>
+                <td><strong>Observation Source</strong></td>
+                <td>{safetyData ? 'Safety nowcast API' : 'No source data returned'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </DetailModal>
+      )}
+
+      {activeModal === 'wind' && (
+        <DetailModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          icon={<IconWind size={18} color="#38bdf8" />}
+          title={`Wind Dynamics & Beaufort Scale — ${locationName}`}
+        >
+          <div className="modal-grid-stats">
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Sustained Wind</div>
+              <div className="modal-stat-box__val" style={{ color: '#38bdf8' }}>
+                {windSpeedKmph != null ? `${windSpeedKmph} km/h` : '--'}
+              </div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Peak Gusts</div>
+              <div className="modal-stat-box__val" style={{ color: '#f59e0b' }}>{gustsText}</div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Beaufort Force</div>
+              <div className="modal-stat-box__val" style={{ color: '#1fd1a8' }}>
+                {beaufort ? `Force ${beaufort.num}` : '--'}
+              </div>
+            </div>
+          </div>
+
+          <table className="modal-table">
+            <tbody>
+              <tr>
+                <td><strong>Beaufort Classification</strong></td>
+                <td>{beaufort ? `${beaufort.desc} (${beaufort.effect})` : 'Unavailable'}</td>
+              </tr>
+              <tr>
+                <td><strong>Prevailing Direction</strong></td>
+                <td>{windRotation == null ? 'Unavailable' : `${degToCompass(windRotation)} (${windRotation} deg)`}</td>
+              </tr>
+              <tr>
+                <td><strong>Small Craft Advisory</strong></td>
+                <td>
+                  <span
+                    style={{
+                      color: windSpeedKmph == null ? '#94a3b8' : windSpeedKmph > 35 ? '#ef4444' : '#10b981',
+                      fontWeight: 700,
+                      fontSize: '11px',
+                      padding: '2px 6px',
+                      background: windSpeedKmph == null ? 'rgba(148,163,184,0.12)' : windSpeedKmph > 35 ? 'rgba(239,68,68,0.12)' : 'rgba(16,185,129,0.12)',
+                      borderRadius: '4px'
+                    }}
+                  >
+                    {windSpeedKmph == null ? 'DATA UNAVAILABLE' : windSpeedKmph > 35 ? 'HIGH WIND ADVISORY' : 'CLEAR FOR ALL CRAFT'}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </DetailModal>
+      )}
+
+      {activeModal === 'waves' && (
+        <DetailModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          icon={<IconWave size={18} color="#38bdf8" />}
+          title={`Wave & Hydrodynamic Profile — ${locationName}`}
+        >
+          <div className="modal-grid-stats">
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Significant Wave</div>
+              <div className="modal-stat-box__val" style={{ color: '#38bdf8' }}>{waveVal}</div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Swell Wave</div>
+              <div className="modal-stat-box__val" style={{ color: '#1fd1a8' }}>
+                {swell != null ? `${swell.toFixed(1)} m` : '--'}
+              </div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">WMO Sea State</div>
+              <div className="modal-stat-box__val" style={{ color: '#f59e0b', fontSize: '15px' }}>
+                {seaState}
+              </div>
+            </div>
+          </div>
+
+          <h4 style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+            Recent Hourly Wave Height Sequence
+          </h4>
+          <table className="modal-table">
+            <thead>
+              <tr>
+                <th>Timestamp (UTC)</th>
+                <th>Sig Wave (m)</th>
+                <th>Swell (m)</th>
+                <th>Sea State</th>
+              </tr>
+            </thead>
+            <tbody>
+              {safetyHistory && safetyHistory.length > 0 ? (
+                safetyHistory.slice(0, 6).map((item, idx) => (
+                  <tr key={idx}>
+                    <td>{item.datetime_utc ? new Date(item.datetime_utc).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : `T - ${idx}h`}</td>
+                    <td><b>{Number(item.significant_wave_height_m).toFixed(1)} m</b></td>
+                    <td>{Number(item.swell_wave_height_m).toFixed(1)} m</td>
+                    <td>{item.wmo_sea_state_desc || 'Moderate'}</td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4">Hourly wave records loaded from v_ocean_safety_nowcast</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </DetailModal>
+      )}
+
+      {activeModal === 'tide' && (
+        <DetailModal
+          isOpen={true}
+          onClose={() => setActiveModal(null)}
+          icon={<IconTide size={18} color="#38bdf8" />}
+          title={`Astronomical Tide Predictions — ${locationName}`}
+        >
+          {isReference && referencePort && (
+            <div
+              style={{
+                fontSize: '11px',
+                color: '#93c5fd',
+                background: 'rgba(59, 130, 246, 0.12)',
+                border: '1px solid rgba(59, 130, 246, 0.28)',
+                padding: '7px 10px',
+                borderRadius: '5px',
+                marginBottom: '12px',
+                lineHeight: 1.4,
+              }}
+            >
+              <strong>Secondary Port Notice:</strong> Harmonic tide curves referenced from Survey of India primary station: <b>{referencePort}</b> ({distanceKm} km away).
+            </div>
+          )}
+          <div className="modal-grid-stats">
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">High Tide Peak</div>
+              <div className="modal-stat-box__val" style={{ color: '#3ddc84' }}>
+                {highTide ? `${Number(highTide.tide_height_meters).toFixed(1)}m` : '--'}
+              </div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Low Tide Trough</div>
+              <div className="modal-stat-box__val" style={{ color: '#38bdf8' }}>
+                {lowTide ? `${Number(lowTide.tide_height_meters).toFixed(1)}m` : '--'}
+              </div>
+            </div>
+            <div className="modal-stat-box">
+              <div className="modal-stat-box__lbl">Datum Reference</div>
+              <div className="modal-stat-box__val" style={{ color: '#1fd1a8', fontSize: '14px' }}>
+                Chart Datum
+              </div>
+            </div>
+          </div>
+
+          <h4 style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+            Upcoming Harmonic Tidal Cycle
+          </h4>
+          <table className="modal-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Phase</th>
+                <th>Height (m)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tides && tides.length > 0 ? (
+                tides.slice(0, 8).map((t, idx) => (
+                  <tr key={t.tide_id || idx}>
+                    <td>{formatTideDate(t.prediction_datetime_utc)}</td>
+                    <td><b>{formatTideTime(t.prediction_datetime_utc)}</b></td>
+                    <td>
+                      <span
+                        style={{
+                          fontSize: '10px',
+                          fontWeight: 700,
+                          padding: '2px 6px',
+                          borderRadius: '3px',
+                          background: t.tide_phase === 'HIGH' || t.tide_phase === 'H' ? 'rgba(61,220,132,0.15)' : 'rgba(53,201,232,0.15)',
+                          color: t.tide_phase === 'HIGH' || t.tide_phase === 'H' ? '#3ddc84' : '#38bdf8',
+                        }}
+                      >
+                        {t.tide_phase === 'HIGH' || t.tide_phase === 'H' ? 'HIGH TIDE' : 'LOW TIDE'}
+                      </span>
+                    </td>
+                    <td><b>{Number(t.tide_height_meters).toFixed(2)} m</b></td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="4">Tide prediction schedule loaded from fact_tide_predictions</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </DetailModal>
+      )}
     </div>
   )
 }

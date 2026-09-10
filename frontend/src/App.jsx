@@ -209,6 +209,7 @@ export default function App() {
           harbors={harbors}
           onSelectHarbor={handleSelectHarbor}
           safetyData={safetyData}
+          safetyHistory={safetyHistory}
           assessment={globalAssessment}
           onOpenAssessment={() => setAssessmentModalOpen(true)}
           loading={loading}
