@@ -3,7 +3,8 @@ import { AgentRequest, AgentResult, AgentName, CardUpdate } from './types';
 import {
   FALLBACK_RESTRICTED_ZONES,
   FALLBACK_PFZ_NATIONAL,
-  FALLBACK_CYCLONE_TRACKS
+  FALLBACK_CYCLONE_TRACKS,
+  FALLBACK_HARBORS
 } from './fallbackData';
 import { extractCoastalStateName } from './mapIntent';
 
@@ -215,7 +216,11 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     const distNm = num(firstDefined(r, ['distance_nm', 'distanceNm'])) ?? (distKm ? +(distKm / 1.852).toFixed(1) : null);
     const bearingCompass = firstDefined(r, ['bearing_compass', 'bearingCompass']) || 'SW';
     const bearingDeg = num(firstDefined(r, ['bearing_deg', 'bearingDeg'])) ?? 225;
-    const refHarbor = firstDefined(r, ['reference_harbor', 'referenceHarbor', 'landing_center_name']);
+    let refHarbor = firstDefined(r, ['reference_harbor', 'referenceHarbor', 'landing_center_name']);
+    if (!refHarbor && r.harbor_id) {
+      const matchedH = FALLBACK_HARBORS.find((h: any) => h.harbor_id === r.harbor_id);
+      if (matchedH) refHarbor = matchedH.landing_center_name;
+    }
 
     return {
       id: advId,
