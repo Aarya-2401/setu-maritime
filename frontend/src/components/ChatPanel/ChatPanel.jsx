@@ -55,6 +55,11 @@ export default function ChatPanel({
   hasApiError,
   onTriggerKeralaDemo,
   onSelectHarbor,
+  onSelectUserLocation,
+  onSetInlandLocation,
+  isUserLocationActive = false,
+  userLocationTag,
+  userLocation,
   onMapFocus,
   isMobile = false
 }) {
@@ -76,8 +81,13 @@ export default function ChatPanel({
     setInput('')
     setTyping(true)
 
-    // Check if query refers to an inland location
+    // Check if query refers to user location or an inland location
     const inlandMatch = detectInlandLocation(trimmed)
+    if (inlandMatch?.isUserPositionQuery && onSelectUserLocation) {
+      onSelectUserLocation()
+    } else if (inlandMatch && onSetInlandLocation) {
+      onSetInlandLocation(inlandMatch)
+    }
 
     // Proactively detect harbor/location mentions in user prompt against loaded 56 harbors
     const lower = trimmed.toLowerCase()
@@ -130,8 +140,34 @@ export default function ChatPanel({
     try {
       const aiResponse = await askOrcaAI(trimmed)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        // Contract enforcement: Only update harbor and map if SUPPORTED or COASTAL_STATE
-        if (aiResponse.locationStatus === 'SUPPORTED' || aiResponse.locationStatus === 'COASTAL_STATE') {
+        // Agentic AI manipulation of dashboard components based on user intent:
+        if (aiResponse.isInland || aiResponse.locationStatus === 'INLAND') {
+          // Inland location: retain fallback harbor (harbor_id 1, Veraval) in background
+          if (aiResponse.harborId && onSelectHarbor) {
+            onSelectHarbor(aiResponse.harborId)
+          }
+
+          if (aiResponse.mapUpdate?.location && onMapFocus) {
+            onMapFocus({
+              lat: Number(aiResponse.mapUpdate.location.latitude),
+              lon: Number(aiResponse.mapUpdate.location.longitude),
+              zoom: aiResponse.mapUpdate.zoom || 10,
+              label: aiResponse.mapUpdate.location.name,
+              timestamp: Date.now()
+            })
+          }
+
+          if (onSetInlandLocation && aiResponse.mapUpdate?.location) {
+            onSetInlandLocation({
+              lat: Number(aiResponse.mapUpdate.location.latitude),
+              lon: Number(aiResponse.mapUpdate.location.longitude),
+              place: aiResponse.location || aiResponse.mapUpdate.location.name,
+              label: aiResponse.mapUpdate.location.name
+            })
+          } else if (onSelectUserLocation) {
+            onSelectUserLocation()
+          }
+        } else if (aiResponse.locationStatus === 'SUPPORTED' || aiResponse.locationStatus === 'COASTAL_STATE') {
           if (aiResponse.harborId && onSelectHarbor) {
             onSelectHarbor(aiResponse.harborId)
           } else if (aiResponse.resolvedHarbor?.harbor_id && onSelectHarbor) {
@@ -148,7 +184,6 @@ export default function ChatPanel({
             })
           }
         }
-        // If INLAND or UNKNOWN, mapUpdate is null and map camera remains untouched
 
         const replySuggestions = (aiResponse.suggestions && aiResponse.suggestions.length > 0)
           ? aiResponse.suggestions
@@ -169,13 +204,14 @@ export default function ChatPanel({
       console.warn('AI endpoint unavailable, using local maritime telemetry engine:', err.message)
     }
 
-    // Fallback response: if inland detected, provide inland message + harbor suggestion chips
+    // Fallback response: if inland detected, update dashboard and provide clear guidance
     if (inlandMatch) {
       setTimeout(() => {
+        const place = inlandMatch.place
         const reply = {
           id: getUUID(),
           role: 'assistant',
-          text: `${inlandMatch.place} is an inland location with no maritime coast or marine fishing harbor. SETU monitors coastal operations across recognized fishing harbors. Try selecting a nearby harbor:`,
+          text: `${place} is an inland location with no open coastline. I have updated your dashboard title cards with the live local weather and surface winds for ${place}, centered your locality radar map on ${place}, and maintained Veraval Fishing Harbor, Gujarat as your regional maritime reference point.`,
           time: timeNow(),
           suggestions: inlandMatch.suggestions
         }
@@ -198,8 +234,11 @@ export default function ChatPanel({
   }
 
   const activePFZ = selectedRoute || (advisories && advisories.length > 0 ? advisories[0] : null)
-  const hasRecommendation = Boolean(activePFZ && safetyData)
-  const recommendationState = assessment?.status === 'SAFE'
+  const isCurrentlyInland = isUserLocationActive && assessment?.isUserLocation
+  const hasRecommendation = isCurrentlyInland || Boolean(activePFZ && safetyData)
+  const recommendationState = isCurrentlyInland
+    ? 'INLAND POSITION CLEAR'
+    : assessment?.status === 'SAFE'
     ? 'ROUTE AUTHORIZED'
     : assessment?.status === 'CAUTION'
     ? 'ROUTE CAUTION'
@@ -253,47 +292,91 @@ export default function ChatPanel({
             </button>
           </div>
 
-        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-          <span>Terminal:</span>
-          <b style={{ color: '#e2e8f0' }}>{harbor?.landing_center_name || 'Harbor unavailable'}</b>
-          <span style={{ background: 'rgba(53, 201, 232, 0.12)', border: '1px solid rgba(53, 201, 232, 0.3)', color: '#38bdf8', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
-            {harbor ? getUNLocode(harbor) : '--'}
-          </span>
-          <span style={{ color: '#94a3b8', fontSize: '10px' }}>
-            ({harbor ? getFormattedHarborTag(harbor) : '--'})
-          </span>
-        </div>
+        {isCurrentlyInland ? (
+          <>
+            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              <span>Position:</span>
+              <b style={{ color: '#e2e8f0' }}>{userLocation?.label || 'User Location'}</b>
+              <span style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
+                YOU
+              </span>
+              <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                (Inland Non-Maritime)
+              </span>
+            </div>
 
-        <div className="copilot-decision-card__target">
-          <strong>{activePFZ ? `PFZ-${activePFZ.advisory_id?.slice(-4) || 'ZONE'}` : 'Recommendation pending'}</strong>
-          {activePFZ && <span> — {activePFZ.target_species || 'Target species not provided'}</span>}
-        </div>
+            <div className="copilot-decision-card__target">
+              <strong>Terrestrial Zone: Clear Operational Profile</strong>
+              <span> — Gateway: {harbor?.landing_center_name || 'Veraval Fishing Harbor, Gujarat'}</span>
+            </div>
 
-        <div className="copilot-decision-card__why">
-          <div className="copilot-why-title">{hasRecommendation ? 'Why this recommendation?' : 'Data status'}</div>
-          {hasRecommendation ? (
-            <ul className="copilot-why-list">
-              <li>
-                <CheckIcon />
-                <span>{selectedRoute?.geofenceEvaluation?.summary || 'Route compliance supplied by the navigation feed'}</span>
-              </li>
-              <li>
-                <CheckIcon />
-                <span>Wave height: {safetyData.significant_wave_height_m != null ? `${Number(safetyData.significant_wave_height_m).toFixed(1)} m` : 'not provided'}</span>
-              </li>
-              <li>
-                <CheckIcon />
-                <span>Sustained wind: {safetyData.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'not provided'}</span>
-              </li>
-              <li>
-                <CheckIcon />
-                <span>Distance {activePFZ.distance_nm} NM · Transit ETA: {calculateETA(activePFZ.distance_nm)}</span>
-              </li>
-            </ul>
-          ) : (
-            <p className="copilot-decision-card__empty">A route recommendation will appear after the safety and navigation feeds return data for this harbor.</p>
-          )}
-        </div>
+            <div className="copilot-decision-card__why">
+              <div className="copilot-why-title">Why this assessment?</div>
+              <ul className="copilot-why-list">
+                <li>
+                  <CheckIcon />
+                  <span>Zero maritime EEZ, IMBL, or coral sanctuary restrictions at this coordinate</span>
+                </li>
+                <li>
+                  <CheckIcon />
+                  <span>Surface wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'calm'}</span>
+                </li>
+                <li>
+                  <CheckIcon />
+                  <span>Air temp: {safetyData?.air_temp_celsius != null ? `${Math.round(safetyData.air_temp_celsius)} °C` : '--'} · Visibility: {safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : 'optimal'}</span>
+                </li>
+                <li>
+                  <CheckIcon />
+                  <span>Maritime telemetry referenced to coastal hub: {harbor?.landing_center_name || 'Veraval'}</span>
+                </li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+              <span>Terminal:</span>
+              <b style={{ color: '#e2e8f0' }}>{harbor?.landing_center_name || 'Harbor unavailable'}</b>
+              <span style={{ background: 'rgba(53, 201, 232, 0.12)', border: '1px solid rgba(53, 201, 232, 0.3)', color: '#38bdf8', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
+                {harbor ? getUNLocode(harbor) : '--'}
+              </span>
+              <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                ({harbor ? getFormattedHarborTag(harbor) : '--'})
+              </span>
+            </div>
+
+            <div className="copilot-decision-card__target">
+              <strong>{activePFZ ? `PFZ-${activePFZ.advisory_id?.slice(-4) || 'ZONE'}` : 'Recommendation pending'}</strong>
+              {activePFZ && <span> — {activePFZ.target_species || 'Target species not provided'}</span>}
+            </div>
+
+            <div className="copilot-decision-card__why">
+              <div className="copilot-why-title">{hasRecommendation ? 'Why this recommendation?' : 'Data status'}</div>
+              {hasRecommendation ? (
+                <ul className="copilot-why-list">
+                  <li>
+                    <CheckIcon />
+                    <span>{selectedRoute?.geofenceEvaluation?.summary || 'Route compliance supplied by the navigation feed'}</span>
+                  </li>
+                  <li>
+                    <CheckIcon />
+                    <span>Wave height: {safetyData?.significant_wave_height_m != null ? `${Number(safetyData.significant_wave_height_m).toFixed(1)} m` : 'not provided'}</span>
+                  </li>
+                  <li>
+                    <CheckIcon />
+                    <span>Sustained wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'not provided'}</span>
+                  </li>
+                  <li>
+                    <CheckIcon />
+                    <span>Distance {activePFZ.distance_nm} NM · Transit ETA: {calculateETA(activePFZ.distance_nm)}</span>
+                  </li>
+                </ul>
+              ) : (
+                <p className="copilot-decision-card__empty">A route recommendation will appear after the safety and navigation feeds return data for this harbor.</p>
+              )}
+            </div>
+          </>
+        )}
 
         {onOpenAssessment && (
           <div className="copilot-decision-card__actions">

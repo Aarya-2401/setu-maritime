@@ -14,14 +14,15 @@ export function registerAiRoute(app: Express) {
         success: true,
         answer: state.answer,
         locationStatus: locStatus,
+        isInland: locStatus === 'INLAND',
         location: state.locationResolution?.locationName || state.resolvedHarbor?.landing_center_name || null,
-        harborId: state.resolvedHarbor?.harbor_id || null,
+        harborId: state.resolvedHarbor?.harbor_id || (locStatus === 'INLAND' ? 1 : null),
         resolvedHarbor: state.resolvedHarbor,
         suggestions: state.locationResolution?.suggestions || [],
         agentsExecuted: state.plan?.requestedAgents || [],
         plan: state.plan,
         cardUpdates: state.cardUpdates || [],
-        mapUpdate: (locStatus === 'SUPPORTED' || locStatus === 'COASTAL_STATE') ? (latestMapUpdate || (state.resolvedHarbor ? {
+        mapUpdate: latestMapUpdate || (state.resolvedHarbor ? {
           action: 'recenter',
           harborId: state.resolvedHarbor.harbor_id,
           location: {
@@ -30,7 +31,7 @@ export function registerAiRoute(app: Express) {
             longitude: state.resolvedHarbor.longitude
           },
           zoom: 11
-        } : null)) : null,
+        } : null),
         agentResults: state.results || [],
         timestamp: new Date().toISOString()
       });

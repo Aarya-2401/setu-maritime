@@ -133,6 +133,10 @@
   box-sizing: border-box;
 }
 
+.mobile-telemetry-capsules--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .mobile-telemetry-capsule {
   display: flex;
   align-items: center;

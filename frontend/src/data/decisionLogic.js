@@ -352,3 +352,96 @@ export function calculateGlobalAssessment({
     alertLevel
   };
 }
+
+/**
+ * Evaluate custom assessment for user location (e.g. inland or non-harbor location)
+ * Prevents showing false coastal caution fallbacks when user is inland.
+ */
+export function evaluateUserLocationAssessment(userLocation, liveWeather, fallbackHarbor) {
+  const city = userLocation?.city || 'User Location';
+  const state = userLocation?.state || 'India';
+  const fullLabel = userLocation?.label || `${city}, ${state}`;
+  const gatewayName = fallbackHarbor?.landing_center_name || 'Veraval Fishing Harbor, Gujarat';
+
+  const airTemp = liveWeather?.air_temp_celsius != null ? Math.round(liveWeather.air_temp_celsius) : null;
+  const windSpeed = liveWeather?.wind_speed_kmph != null ? Math.round(liveWeather.wind_speed_kmph) : null;
+  const pressure = liveWeather?.surface_pressure_hpa != null ? Math.round(liveWeather.surface_pressure_hpa) : null;
+  const visibility = liveWeather?.visibility_km != null ? Number(liveWeather.visibility_km).toFixed(1) : null;
+
+  const isExtremeWind = windSpeed != null && windSpeed > 45;
+  const status = isExtremeWind ? 'CAUTION' : 'SAFE';
+  const decisionLabel = isExtremeWind ? 'INLAND — HIGH WIND CAUTION' : 'INLAND LOCATION — CLEAR';
+  const tone = isExtremeWind ? 'moderate' : 'good';
+  const color = isExtremeWind ? '#f59e0b' : '#10b981';
+
+  const factors = [
+    {
+      category: 'OPERATIONAL_OCEAN',
+      name: 'Local Surface Wind Velocity',
+      value: windSpeed != null ? `${windSpeed} km/h` : '--',
+      threshold: '< 35 km/h (Normal Atmospheric)',
+      state: isExtremeWind ? 'CAUTION' : 'PASS',
+      tone: isExtremeWind ? 'moderate' : 'good',
+      impact: isExtremeWind ? 'ELEVATED WIND' : 'FAVORABLE',
+      details: `Live atmospheric wind velocity detected in ${city}. No maritime sea drag or oceanic wave turbulence.`
+    },
+    {
+      category: 'OPERATIONAL_OCEAN',
+      name: 'Air Temperature & Comfort',
+      value: airTemp != null ? `${airTemp} °C` : '--',
+      threshold: 'Normal Surface Envelope',
+      state: 'PASS',
+      tone: 'good',
+      impact: 'FAVORABLE',
+      details: `Ambient air temperature recorded at ${fullLabel}.`
+    },
+    {
+      category: 'OPERATIONAL_OCEAN',
+      name: 'Atmospheric Visibility & Pressure',
+      value: visibility != null ? `${visibility} km · ${pressure || '--'} hPa` : '--',
+      threshold: '> 5.0 km (Optimal Line of Sight)',
+      state: 'PASS',
+      tone: 'good',
+      impact: 'CLEAR',
+      details: `Barometric surface pressure: ${pressure || '--'} hPa. Stable continental air mass.`
+    },
+    {
+      category: 'GEOSPATIAL_REGULATORY',
+      name: 'Terrestrial Locality Classification',
+      value: `Inland Location (${city}, ${state})`,
+      threshold: 'Terrestrial Zone (Non-Maritime)',
+      state: 'PASS',
+      tone: 'good',
+      impact: 'CLEAR',
+      details: `${city} is located in an inland terrestrial zone. No maritime EEZ, IMBL, or coral sanctuary restrictions apply locally.`
+    },
+    {
+      category: 'GEOSPATIAL_REGULATORY',
+      name: 'Maritime Operations Reference Hub',
+      value: `Proximate Gateway: ${gatewayName}`,
+      threshold: 'Fallback Coastal Gateway (Gujarat)',
+      state: 'PASS',
+      tone: 'good',
+      impact: 'SYNCHRONIZED',
+      details: `Marine fishing advisories, bathymetry, and potential fishing zone (PFZ) telemetry reference ${gatewayName}.`
+    }
+  ];
+
+  const actionableDirective = `User position detected at ${fullLabel} (Inland). Terrestrial zone with zero open-sea hazards or sanctuary boundary limits. Marine navigation and PFZ feeds reference ${gatewayName}.`;
+
+  return {
+    status,
+    decisionLabel,
+    tone,
+    color,
+    factors,
+    selectedRoute: null,
+    evaluatedRoutes: [],
+    actionableDirective,
+    dataFreshness: liveWeather?.timestamp ? formatDataTimestamp(liveWeather.timestamp) : 'Live',
+    rawSafetyRating: 'INLAND_CLEAR',
+    alertLevel: null,
+    isUserLocation: true
+  };
+}
+

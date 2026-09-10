@@ -160,6 +160,41 @@ export const INLAND_REGIONS = new Set([
   'jalandhar', 'patiala', 'bathinda', 'mohali'
 ]);
 
+export const INLAND_COORDINATES: Record<string, { lat: number; lon: number; state: string; name: string }> = {
+  jaipur: { lat: 26.9124, lon: 75.7873, state: 'Rajasthan', name: 'Jaipur, Rajasthan' },
+  delhi: { lat: 28.6139, lon: 77.2090, state: 'Delhi', name: 'Delhi' },
+  'new delhi': { lat: 28.6139, lon: 77.2090, state: 'Delhi', name: 'New Delhi' },
+  noida: { lat: 28.5355, lon: 77.3910, state: 'Uttar Pradesh', name: 'Noida, Uttar Pradesh' },
+  gurgaon: { lat: 28.4595, lon: 77.0266, state: 'Haryana', name: 'Gurugram, Haryana' },
+  gurugram: { lat: 28.4595, lon: 77.0266, state: 'Haryana', name: 'Gurugram, Haryana' },
+  bengaluru: { lat: 12.9716, lon: 77.5946, state: 'Karnataka', name: 'Bengaluru, Karnataka' },
+  bangalore: { lat: 12.9716, lon: 77.5946, state: 'Karnataka', name: 'Bengaluru, Karnataka' },
+  hyderabad: { lat: 17.3850, lon: 78.4867, state: 'Telangana', name: 'Hyderabad, Telangana' },
+  pune: { lat: 18.5204, lon: 73.8567, state: 'Maharashtra', name: 'Pune, Maharashtra' },
+  ahmedabad: { lat: 23.0225, lon: 72.5714, state: 'Gujarat', name: 'Ahmedabad, Gujarat' },
+  gandhinagar: { lat: 23.2156, lon: 72.6369, state: 'Gujarat', name: 'Gandhinagar, Gujarat' },
+  vadodara: { lat: 22.3072, lon: 73.1812, state: 'Gujarat', name: 'Vadodara, Gujarat' },
+  anand: { lat: 22.5645, lon: 72.9289, state: 'Gujarat', name: 'Anand, Gujarat' },
+  rajkot: { lat: 22.3039, lon: 70.8022, state: 'Gujarat', name: 'Rajkot, Gujarat' },
+  lucknow: { lat: 26.8467, lon: 80.9462, state: 'Uttar Pradesh', name: 'Lucknow, Uttar Pradesh' },
+  kanpur: { lat: 26.4499, lon: 80.3319, state: 'Uttar Pradesh', name: 'Kanpur, Uttar Pradesh' },
+  varanasi: { lat: 25.3176, lon: 82.9739, state: 'Uttar Pradesh', name: 'Varanasi, Uttar Pradesh' },
+  agra: { lat: 27.1767, lon: 78.0081, state: 'Uttar Pradesh', name: 'Agra, Uttar Pradesh' },
+  bhopal: { lat: 23.2599, lon: 77.4126, state: 'Madhya Pradesh', name: 'Bhopal, Madhya Pradesh' },
+  indore: { lat: 22.7196, lon: 75.8577, state: 'Madhya Pradesh', name: 'Indore, Madhya Pradesh' },
+  gwalior: { lat: 26.2183, lon: 78.1828, state: 'Madhya Pradesh', name: 'Gwalior, Madhya Pradesh' },
+  jabalpur: { lat: 23.1815, lon: 79.9864, state: 'Madhya Pradesh', name: 'Jabalpur, Madhya Pradesh' },
+  patna: { lat: 25.5941, lon: 85.1376, state: 'Bihar', name: 'Patna, Bihar' },
+  chandigarh: { lat: 30.7333, lon: 76.7794, state: 'Punjab', name: 'Chandigarh' },
+  jodhpur: { lat: 26.2389, lon: 73.0243, state: 'Rajasthan', name: 'Jodhpur, Rajasthan' },
+  udaipur: { lat: 24.5854, lon: 73.7125, state: 'Rajasthan', name: 'Udaipur, Rajasthan' },
+  bikaner: { lat: 28.0229, lon: 73.3119, state: 'Rajasthan', name: 'Bikaner, Rajasthan' },
+  ajmer: { lat: 26.4499, lon: 74.6399, state: 'Rajasthan', name: 'Ajmer, Rajasthan' },
+  kota: { lat: 25.2138, lon: 75.8648, state: 'Rajasthan', name: 'Kota, Rajasthan' },
+  nagpur: { lat: 21.1458, lon: 79.0882, state: 'Maharashtra', name: 'Nagpur, Maharashtra' },
+  nashik: { lat: 19.9975, lon: 73.7898, state: 'Maharashtra', name: 'Nashik, Maharashtra' }
+};
+
 function levenshtein(a: string, b: string): number {
   const m = a.length, n = b.length;
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0));
@@ -201,6 +236,7 @@ export interface LocationResolution {
   status: 'SUPPORTED' | 'COASTAL_STATE' | 'INLAND' | 'UNKNOWN';
   locationName?: string;
   stateName?: string;
+  coordinates?: { latitude: number; longitude: number };
   harbor?: any;
   referenceHarbor?: any;
   stateHarbors?: any[];
@@ -281,9 +317,14 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
         ? ['Hazira Port', 'Mundra Port', 'Dahej Port', 'Veraval']
         : fallbackSuggestions;
 
+      const rawKey = raw.toLowerCase().trim();
+      const coords = INLAND_COORDINATES[rawKey] || Object.entries(INLAND_COORDINATES).find(([k]) => rawKey.includes(k))?.[1];
+
       return {
         status: 'INLAND',
-        locationName: location.name,
+        locationName: coords?.name || location.name,
+        stateName: coords?.state,
+        coordinates: coords ? { latitude: coords.lat, longitude: coords.lon } : undefined,
         harbor: null,
         suggestions: inlandSuggestions
       };

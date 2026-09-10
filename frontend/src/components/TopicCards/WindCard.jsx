@@ -22,7 +22,13 @@ function getBeaufortScale(kmph) {
   return { num: 7, desc: 'High wind / Gale', effect: 'Sea heaps up, white foam streaks' }
 }
 
-export default function WindCard({ harbor, safetyData, loading }) {
+export default function WindCard({
+  harbor,
+  safetyData,
+  loading,
+  customLocationName,
+  isUserLocation = false
+}) {
   const [modalOpen, setModalOpen] = useState(false)
 
   const speed = loading || safetyData?.wind_speed_kmph == null
@@ -34,6 +40,7 @@ export default function WindCard({ harbor, safetyData, loading }) {
   
   const rotation = safetyData?.wind_direction_deg != null ? Number(safetyData.wind_direction_deg) : null
   const beaufort = speed !== '--' ? getBeaufortScale(speed) : null
+  const locationName = customLocationName || harbor?.landing_center_name || 'Coastal'
 
   const windImpact = speed === '--' ? '--' : speed > 45 ? 'GALE FORCE' : speed > 30 ? 'MODERATE' : 'LOW'
   const windImpactTone = speed === '--' ? 'neutral' : speed > 45 ? 'bad' : speed > 30 ? 'moderate' : 'good'
@@ -85,7 +92,7 @@ export default function WindCard({ harbor, safetyData, loading }) {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         icon={<IconWind size={18} color="#35c9e8" />}
-        title={`Wind Dynamics & Beaufort Scale — ${harbor?.landing_center_name || 'Coastal'}`}
+        title={`Wind Dynamics & Beaufort Scale — ${locationName}`}
       >
         <div className="modal-grid-stats">
           <div className="modal-stat-box">
@@ -110,10 +117,10 @@ export default function WindCard({ harbor, safetyData, loading }) {
             </tr>
             <tr>
               <td><strong>Prevailing Direction</strong></td>
-              <td>{rotation == null ? 'Unavailable' : `${degToCompass(rotation)} (${rotation}°)`}</td>
+              <td>{rotation == null ? 'Unavailable' : `${degToCompass(rotation)} (${rotation} deg)`}</td>
             </tr>
             <tr>
-              <td><strong>Small Craft Advisory</strong></td>
+              <td><strong>{isUserLocation ? 'Atmospheric Advisory' : 'Small Craft Advisory'}</strong></td>
               <td>
                 <span
                   style={{
@@ -125,7 +132,7 @@ export default function WindCard({ harbor, safetyData, loading }) {
                     borderRadius: '4px'
                   }}
                 >
-                  {speed === '--' ? 'DATA UNAVAILABLE' : speed > 35 ? 'HIGH WIND ADVISORY' : 'CLEAR FOR ALL CRAFT'}
+                  {speed === '--' ? 'DATA UNAVAILABLE' : speed > 35 ? 'HIGH WIND ADVISORY' : isUserLocation ? 'CLEAR / NORMAL BREEZE' : 'CLEAR FOR ALL CRAFT'}
                 </span>
               </td>
             </tr>

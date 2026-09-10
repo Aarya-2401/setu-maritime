@@ -3,7 +3,14 @@ import TopicCard from './TopicCard'
 import DetailModal from '../Modal/DetailModal'
 import { IconCloud, IconLocation } from '../Icons'
 
-export default function WeatherCard({ harbor, safetyData, loading }) {
+export default function WeatherCard({
+  harbor,
+  safetyData,
+  loading,
+  customLocationName,
+  isUserLocation = false,
+  userLocation
+}) {
   const [modalOpen, setModalOpen] = useState(false)
 
   const temp = loading || safetyData?.air_temp_celsius == null
@@ -15,7 +22,10 @@ export default function WeatherCard({ harbor, safetyData, loading }) {
   const visibility = loading || safetyData?.visibility_km == null
     ? '--'
     : `${Number(safetyData.visibility_km).toFixed(1)} km`
-  const locationName = harbor?.landing_center_name || 'Coastal Station'
+  const locationName = customLocationName || harbor?.landing_center_name || 'Coastal Station'
+  const sectorName = isUserLocation
+    ? (userLocation?.state ? `Inland (${userLocation.state})` : 'Inland Locality')
+    : (safetyData?.sector || harbor?.sector || '--')
 
   const visNum = safetyData?.visibility_km != null ? Number(safetyData.visibility_km) : null
   const visImpact = visNum == null ? '--' : visNum >= 5.0 ? 'CLEAR' : visNum >= 2.5 ? 'REDUCED' : 'RESTRICTED'
@@ -46,7 +56,7 @@ export default function WeatherCard({ harbor, safetyData, loading }) {
           </div>
           <div className="weather-card__meta">
             <div className="weather-card__feels">
-              Sector: {safetyData?.sector || harbor?.sector || '--'}
+              Sector: {sectorName}
             </div>
             <div className="weather-card__place" style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'flex-end', color: '#cbd5e1' }}>
               <IconLocation size={11} color="#94a3b8" /> {locationName}
@@ -74,7 +84,7 @@ export default function WeatherCard({ harbor, safetyData, loading }) {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         icon={<IconCloud size={18} color="#35c9e8" />}
-        title={`Coastal Weather Telemetry — ${locationName}`}
+        title={`${isUserLocation ? 'Atmospheric Weather Telemetry' : 'Coastal Weather Telemetry'} — ${locationName}`}
       >
         <div className="modal-grid-stats">
           <div className="modal-stat-box">
@@ -94,24 +104,24 @@ export default function WeatherCard({ harbor, safetyData, loading }) {
         <table className="modal-table">
           <tbody>
             <tr>
-              <td><strong>Landing Center / Harbor</strong></td>
+              <td><strong>{isUserLocation ? 'Locality / Station' : 'Landing Center / Harbor'}</strong></td>
               <td>{locationName}</td>
             </tr>
             <tr>
-              <td><strong>Coastal Sector & State</strong></td>
-              <td>{harbor?.sector} · {harbor?.state}</td>
+              <td><strong>{isUserLocation ? 'Locality Type & Region' : 'Coastal Sector & State'}</strong></td>
+              <td>{isUserLocation ? `${sectorName} (User Position)` : `${harbor?.sector || '--'} · ${harbor?.state || '--'}`}</td>
             </tr>
             <tr>
               <td><strong>Regional Alert Status</strong></td>
-              <td><span style={{ color: safetyData?.active_regional_alert_level ? '#1fd1a8' : '#94a3b8', fontWeight: 600 }}>{safetyData?.active_regional_alert_level || 'Unavailable'}</span></td>
+              <td><span style={{ color: safetyData?.active_regional_alert_level ? '#1fd1a8' : '#94a3b8', fontWeight: 600 }}>{safetyData?.active_regional_alert_level || 'Normal / Clear'}</span></td>
             </tr>
             <tr>
               <td><strong>Composite Safety Rating</strong></td>
-              <td><strong>{safetyData?.composite_safety_rating || 'Unavailable'}</strong></td>
+              <td><strong>{isUserLocation ? 'CLEAR' : (safetyData?.composite_safety_rating || 'Unavailable')}</strong></td>
             </tr>
             <tr>
               <td><strong>Observation Source</strong></td>
-              <td>{safetyData ? 'Safety nowcast API' : 'No source data returned'}</td>
+              <td>{safetyData?.source || (safetyData ? 'Safety nowcast API' : 'No source data returned')}</td>
             </tr>
           </tbody>
         </table>

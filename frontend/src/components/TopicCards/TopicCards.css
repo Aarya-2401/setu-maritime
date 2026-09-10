@@ -6,6 +6,10 @@
   margin-top: 0;
 }
 
+.topic-grid--two {
+  grid-template-columns: repeat(2, 1fr);
+}
+
 .topic-card {
   contain: layout style;
   background: var(--bg-panel);

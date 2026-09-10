@@ -168,10 +168,12 @@ function MapLayers({
   maritimeBoundaries,
   selectedRouteId,
   onSelectRoute,
-  userLocation
+  userLocation,
+  harborCoords
 }) {
   const locode = getUNLocode(harbor)
   const harborMarkerIcon = useMemo(() => createHarborMarkerIcon(locode), [locode])
+  const originCoords = harborCoords || coords
 
   // Group and sort EEZ Outer Boundary (200 NM limit)
   const eezPoints = useMemo(() => {
@@ -204,10 +206,10 @@ function MapLayers({
     <>
       {/* Active Departure Harbor Marker */}
       {hasHarbor && (
-        <Marker position={coords} icon={harborMarkerIcon}>
+        <Marker position={originCoords} icon={harborMarkerIcon}>
           <Popup>
             <div style={{ color: '#0f172a', fontSize: '11.5px', minWidth: '220px' }}>
-              <strong style={{ fontSize: '13px', color: '#1e40af', display: 'block', marginBottom: '2px' }}>{locationName}</strong>
+              <strong style={{ fontSize: '13px', color: '#1e40af', display: 'block', marginBottom: '2px' }}>{harbor?.landing_center_name || locationName}</strong>
               <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginBottom: '6px' }}>
                 <span style={{ background: '#e0f2fe', color: '#0369a1', padding: '1px 6px', borderRadius: '3px', fontWeight: 700, fontSize: '10px' }}>
                   {getUNLocode(harbor)}
@@ -239,7 +241,7 @@ function MapLayers({
       {/* 1. Wave Hazard Perimeter Circle */}
       {hasHarbor && layerWaves && !loading && waveHeight != null && (
         <Circle
-          center={coords}
+          center={originCoords}
           radius={20000 + waveHeight * 6000}
           pathOptions={{
             color: waveHeight > 3.0 ? '#ef4444' : waveHeight > 2.0 ? '#f59e0b' : '#35c9e8',
@@ -266,7 +268,7 @@ function MapLayers({
           let clientZoneViolation = null
           if (restrictedZones && restrictedZones.length > 0) {
             for (const z of restrictedZones) {
-              const check = checkZoneTraverse(coords[0], coords[1], destLat, destLon, z)
+              const check = checkZoneTraverse(originCoords[0], originCoords[1], destLat, destLon, z)
               if (check.traverses) {
                 clientZoneViolation = check
                 break
@@ -310,7 +312,7 @@ function MapLayers({
           return (
             <Polyline
               key={route.advisory_id || idx}
-              positions={[coords, [destLat, destLon]]}
+              positions={[originCoords, [destLat, destLon]]}
               pathOptions={{
                 color: rColor,
                 weight,
@@ -660,7 +662,10 @@ export default function MapSection({
   hasApiError,
   mapFocusTarget,
   userLocation,
-  isMobile = false
+  isMobile = false,
+  isUserLocationActive = false,
+  hasLiveMarineData = true,
+  liveWeather = null
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -682,10 +687,18 @@ export default function MapSection({
   }, [isExpanded])
 
   const hasHarbor = Boolean(harbor && harbor.latitude && harbor.longitude)
-  const lat = hasHarbor ? Number(harbor.latitude) : 15.0
-  const lon = hasHarbor ? Number(harbor.longitude) : 76.0
-  const coords = [lat, lon]
-  const locationName = harbor?.landing_center_name || 'Harbor unavailable'
+  const harborLat = hasHarbor ? Number(harbor.latitude) : 15.0
+  const harborLon = hasHarbor ? Number(harbor.longitude) : 76.0
+  const harborCoords = [harborLat, harborLon]
+
+  const activeLat = (isUserLocationActive && userLocation?.lat) ? Number(userLocation.lat) : harborLat
+  const activeLon = (isUserLocationActive && userLocation?.lon) ? Number(userLocation.lon) : harborLon
+  const coords = [activeLat, activeLon]
+
+  const isInland = isUserLocationActive && !hasLiveMarineData
+  const locationName = isUserLocationActive && userLocation?.label
+    ? userLocation.label
+    : (harbor?.landing_center_name || 'Harbor unavailable')
 
   // Ensure Kerala fallback route and advisory are present when Cochin harbor is active
   const effectiveRoutes = useMemo(() => {
@@ -716,16 +729,18 @@ export default function MapSection({
   const activeViolation = useMemo(() => {
     if (!activeRoute || !restrictedZones || restrictedZones.length === 0) return null
     for (const z of restrictedZones) {
-      const check = checkZoneTraverse(coords[0], coords[1], Number(activeRoute.target_lat), Number(activeRoute.target_lon), z)
+      const check = checkZoneTraverse(harborCoords[0], harborCoords[1], Number(activeRoute.target_lat), Number(activeRoute.target_lon), z)
       if (check.traverses) return z.zone_name
     }
     return activeRoute.violates_restricted_zone ? (activeRoute.intersected_sanctuary || 'Restricted Marine Sanctuary') : null
-  }, [activeRoute, restrictedZones, coords])
+  }, [activeRoute, restrictedZones, harborCoords])
 
   const hasSanctuaryViolation = Boolean(activeViolation)
   const isTopCaution = activeRoute?.geofencing_compliance_status?.includes('CAUTION') || activeRoute?.geofencing_compliance_status?.includes('IMBL')
 
-  const complianceStatus = !hasRouteData
+  const complianceStatus = isInland
+    ? 'Inland Position Clear'
+    : !hasRouteData
     ? 'Route data unavailable'
     : hasSanctuaryViolation
     ? 'Restricted Zone Violation'
@@ -733,7 +748,9 @@ export default function MapSection({
     ? 'IMBL Proximity Caution'
     : 'EEZ Clear Route'
 
-  const complianceColor = !hasRouteData
+  const complianceColor = isInland
+    ? '#10b981'
+    : !hasRouteData
     ? '#94a3b8'
     : hasSanctuaryViolation
     ? '#ef4444'
@@ -743,6 +760,7 @@ export default function MapSection({
 
   const mapLayerProps = {
     coords,
+    harborCoords,
     locationName,
     harbor,
     hasHarbor,
@@ -792,7 +810,7 @@ export default function MapSection({
               updateWhenIdle={true}
               updateWhenZooming={false}
             />
-            <MapCameraController centerLat={lat} centerLon={lon} focusTarget={mapFocusTarget} />
+            <MapCameraController centerLat={activeLat} centerLon={activeLon} focusTarget={mapFocusTarget} />
             <MapInvalidator />
             <MapLayers {...mapLayerProps} />
           </MapContainer>
@@ -812,7 +830,9 @@ export default function MapSection({
                 <div className="map-glass-icon" title="Navigation Radar Telemetry">
                   <IconRadar size={13} color="#35c9e8" />
                 </div>
-                <span className="map-overlay-header__title">Navigation radar</span>
+                <span className="map-overlay-header__title">
+                  {isInland ? 'Locality radar' : 'Navigation radar'}
+                </span>
                 <button
                   className="map-section__compliance-pill"
                   style={{
@@ -843,9 +863,9 @@ export default function MapSection({
                 <button
                   className="map-section__route-btn"
                   onClick={() => setModalOpen(true)}
-                  title="Open full Geofence Compliance & Route Verification table (Shortcut: R)"
+                  title={isInland ? 'View fallback Gujarat maritime routes (Shortcut: R)' : 'Open full Geofence Compliance & Route Verification table (Shortcut: R)'}
                 >
-                  Routes ({routes?.length || 0})
+                  {isInland ? `Gateway Routes (${routes?.length || 0})` : `Routes (${routes?.length || 0})`}
                 </button>
                 <div
                   className="map-section__badge"
@@ -861,65 +881,131 @@ export default function MapSection({
           {/* Floating Geofence & Operational Clearance HUD on Map (desktop only) */}
           {!isMobile && (
             <div className="map-geofence-hud">
-              <div className="map-geofence-hud__section">
-                <div className="map-geofence-hud__header">
-                  <div className="map-geofence-hud__title-wrap">
-                    <div className="map-glass-icon map-glass-icon--sm" title="Geospatial Satellite Monitoring">
-                      <IconGlobe size={11} color="#35c9e8" />
+              {isInland ? (
+                <>
+                  <div className="map-geofence-hud__section">
+                    <div className="map-geofence-hud__header">
+                      <div className="map-geofence-hud__title-wrap">
+                        <div className="map-glass-icon map-glass-icon--sm" title="Terrestrial Locality Status">
+                          <IconGlobe size={11} color="#35c9e8" />
+                        </div>
+                        <span className="hud-title">LOCALITY STATUS</span>
+                      </div>
+                      <span className="hud-badge hud-badge--pass">
+                        INLAND REGION
+                      </span>
                     </div>
-                    <span className="hud-title">GEOSPATIAL STATUS</span>
-                  </div>
-                  <span className={`hud-badge ${geofenceStatus === 'BLOCKED' ? 'hud-badge--fail' : geofenceStatus === 'UNAVAILABLE' ? 'hud-badge--neutral' : geofenceStatus === 'CAUTION' ? 'hud-badge--warn' : 'hud-badge--pass'}`}>
-                    {geofenceStatus}
-                  </span>
-                </div>
-                <div className="map-geofence-hud__checks">
-                  <div className="hud-check">
-                    <span className="hud-icon">{hasRouteData ? <CheckPassIcon /> : <CheckWarnIcon />}</span>
-                    <span>EEZ: {hasRouteData ? 'route evaluated' : 'route data required'}</span>
-                  </div>
-                  <div className="hud-check">
-                    <span className="hud-icon">{!hasRouteData || isTopCaution ? <CheckWarnIcon /> : <CheckPassIcon />}</span>
-                    <span>IMBL: {!hasRouteData ? 'not evaluated' : isTopCaution ? 'caution' : 'clear'}</span>
-                  </div>
-                  <div className="hud-check">
-                    <span className="hud-icon">{!hasRouteData || !hasZoneData ? <CheckWarnIcon /> : hasSanctuaryViolation ? <CheckFailIcon /> : <CheckPassIcon />}</span>
-                    <span>Restricted: {!hasRouteData ? 'not evaluated' : !hasZoneData ? 'zone data required' : hasSanctuaryViolation ? `traverses ${activeViolation}` : 'clear'}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="map-geofence-hud__divider" />
-
-              <div className="map-geofence-hud__section">
-                <div className="map-geofence-hud__header">
-                  <div className="map-geofence-hud__title-wrap">
-                    <div className="map-glass-icon map-glass-icon--sm" title="Ocean Sensor Feeds">
-                      <IconCompass size={11} color="#35c9e8" />
+                    <div className="map-geofence-hud__checks">
+                      <div className="hud-check">
+                        <span className="hud-icon"><CheckPassIcon /></span>
+                        <span>Terrain: Non-maritime</span>
+                      </div>
+                      <div className="hud-check">
+                        <span className="hud-icon"><CheckPassIcon /></span>
+                        <span>Corridor: Zero boundary limits</span>
+                      </div>
+                      <div className="hud-check">
+                        <span className="hud-icon"><CheckPassIcon /></span>
+                        <span>Gateway: {harbor?.landing_center_name || 'Veraval, Gujarat'}</span>
+                      </div>
                     </div>
-                    <span className="hud-title">OPERATIONAL STATUS</span>
                   </div>
-                  {onOpenAssessment && (
-                    <button className="hud-why-btn" onClick={onOpenAssessment} title="Open Assessment Breakdown">
-                      Why?
-                    </button>
-                  )}
-                </div>
-                <div className="map-geofence-hud__checks">
-                  <div className="hud-metric">
-                    <span>Wave: <b>{waveHeight != null ? `${waveHeight.toFixed(1)}m` : '--'}</b></span>
-                    <span className={`hud-metric-pill hud-metric-pill--${waveImpactTone}`}>
-                      {waveImpact}
-                    </span>
+
+                  <div className="map-geofence-hud__divider" />
+
+                  <div className="map-geofence-hud__section">
+                    <div className="map-geofence-hud__header">
+                      <div className="map-geofence-hud__title-wrap">
+                        <div className="map-glass-icon map-glass-icon--sm" title="Surface Atmospheric Conditions">
+                          <IconCompass size={11} color="#35c9e8" />
+                        </div>
+                        <span className="hud-title">SURFACE WEATHER</span>
+                      </div>
+                      {onOpenAssessment && (
+                        <button className="hud-why-btn" onClick={onOpenAssessment} title="Open Assessment Breakdown">
+                          Why?
+                        </button>
+                      )}
+                    </div>
+                    <div className="map-geofence-hud__checks">
+                      <div className="hud-metric">
+                        <span>Temp: <b>{liveWeather?.air_temp_celsius != null ? `${Math.round(liveWeather.air_temp_celsius)}°C` : (safetyData?.air_temp_celsius != null ? `${Math.round(safetyData.air_temp_celsius)}°C` : '--')}</b></span>
+                        <span className="hud-metric-pill hud-metric-pill--pass">
+                          Normal
+                        </span>
+                      </div>
+                      <div className="hud-metric">
+                        <span>Wind: <b>{liveWeather?.wind_speed_kmph != null ? `${Math.round(liveWeather.wind_speed_kmph)} km/h` : (safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : '--')}</b></span>
+                        <span className="hud-metric-pill hud-metric-pill--pass">
+                          Calm
+                        </span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="hud-metric">
-                    <span>Wind: <b>{windSpeed != null ? `${Math.round(windSpeed)} km/h` : '--'}</b></span>
-                    <span className={`hud-metric-pill hud-metric-pill--${windImpactTone}`}>
-                      {windImpact}
-                    </span>
+                </>
+              ) : (
+                <>
+                  <div className="map-geofence-hud__section">
+                    <div className="map-geofence-hud__header">
+                      <div className="map-geofence-hud__title-wrap">
+                        <div className="map-glass-icon map-glass-icon--sm" title="Geospatial Satellite Monitoring">
+                          <IconGlobe size={11} color="#35c9e8" />
+                        </div>
+                        <span className="hud-title">GEOSPATIAL STATUS</span>
+                      </div>
+                      <span className={`hud-badge ${geofenceStatus === 'BLOCKED' ? 'hud-badge--fail' : geofenceStatus === 'UNAVAILABLE' ? 'hud-badge--neutral' : geofenceStatus === 'CAUTION' ? 'hud-badge--warn' : 'hud-badge--pass'}`}>
+                        {geofenceStatus}
+                      </span>
+                    </div>
+                    <div className="map-geofence-hud__checks">
+                      <div className="hud-check">
+                        <span className="hud-icon">{hasRouteData ? <CheckPassIcon /> : <CheckWarnIcon />}</span>
+                        <span>EEZ: {hasRouteData ? 'route evaluated' : 'route data required'}</span>
+                      </div>
+                      <div className="hud-check">
+                        <span className="hud-icon">{!hasRouteData || isTopCaution ? <CheckWarnIcon /> : <CheckPassIcon />}</span>
+                        <span>IMBL: {!hasRouteData ? 'not evaluated' : isTopCaution ? 'caution' : 'clear'}</span>
+                      </div>
+                      <div className="hud-check">
+                        <span className="hud-icon">{!hasRouteData || !hasZoneData ? <CheckWarnIcon /> : hasSanctuaryViolation ? <CheckFailIcon /> : <CheckPassIcon />}</span>
+                        <span>Restricted: {!hasRouteData ? 'not evaluated' : !hasZoneData ? 'zone data required' : hasSanctuaryViolation ? `traverses ${activeViolation}` : 'clear'}</span>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+
+                  <div className="map-geofence-hud__divider" />
+
+                  <div className="map-geofence-hud__section">
+                    <div className="map-geofence-hud__header">
+                      <div className="map-geofence-hud__title-wrap">
+                        <div className="map-glass-icon map-glass-icon--sm" title="Ocean Sensor Feeds">
+                          <IconCompass size={11} color="#35c9e8" />
+                        </div>
+                        <span className="hud-title">OPERATIONAL STATUS</span>
+                      </div>
+                      {onOpenAssessment && (
+                        <button className="hud-why-btn" onClick={onOpenAssessment} title="Open Assessment Breakdown">
+                          Why?
+                        </button>
+                      )}
+                    </div>
+                    <div className="map-geofence-hud__checks">
+                      <div className="hud-metric">
+                        <span>Wave: <b>{waveHeight != null ? `${waveHeight.toFixed(1)}m` : '--'}</b></span>
+                        <span className={`hud-metric-pill hud-metric-pill--${waveImpactTone}`}>
+                          {waveImpact}
+                        </span>
+                      </div>
+                      <div className="hud-metric">
+                        <span>Wind: <b>{windSpeed != null ? `${Math.round(windSpeed)} km/h` : '--'}</b></span>
+                        <span className={`hud-metric-pill hud-metric-pill--${windImpactTone}`}>
+                          {windImpact}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -1048,7 +1134,7 @@ export default function MapSection({
                     updateWhenIdle={true}
                     updateWhenZooming={false}
                   />
-                  <MapCameraController centerLat={lat} centerLon={lon} focusTarget={mapFocusTarget} />
+                  <MapCameraController centerLat={activeLat} centerLon={activeLon} focusTarget={mapFocusTarget} />
                   <MapInvalidator />
                   <MapLayers {...mapLayerProps} />
                 </MapContainer>

@@ -3,7 +3,8 @@ import TopBar from './components/TopBar/TopBar'
 import MapSection from './components/MapSection/MapSection'
 import TopicCardsGrid from './components/TopicCards/TopicCardsGrid'
 import ChatPanel from './components/ChatPanel/ChatPanel'
-import { calculateGlobalAssessment } from './data/decisionLogic'
+import { calculateGlobalAssessment, evaluateUserLocationAssessment } from './data/decisionLogic'
+import { fetchLiveWeather, getCityStateAbbr } from './data/liveWeather'
 import MobileLayout from './components/Mobile/MobileLayout'
 import { useIsMobile } from './components/Mobile/useIsMobile'
 
@@ -22,10 +23,12 @@ import './App.css'
 export default function App() {
   const { harbors, loading: harborsLoading, error: harborsError } = useHarbors()
   const [selectedHarborId, setSelectedHarborId] = useState(1)
+  const [isUserLocationActive, setIsUserLocationActive] = useState(false)
   const [selectedRouteId, setSelectedRouteId] = useState(null)
   const [mapFocusTarget, setMapFocusTarget] = useState(null)
   const [assessmentModalOpen, setAssessmentModalOpen] = useState(false)
   const [userLocation, setUserLocation] = useState(null)
+  const [liveWeatherData, setLiveWeatherData] = useState(null)
 
   const isMobile = useIsMobile(768)
 
@@ -66,11 +69,27 @@ export default function App() {
             const city = addr.city || addr.town || addr.village || addr.county || addr.state_district || ''
             const state = addr.state || ''
             const label = city && state ? `${city}, ${state}` : city || state || 'Current Location'
-            setUserLocation({ lat, lon, label, city, state })
+            const locObj = { lat, lon, label, city, state }
+            setUserLocation(locObj)
+            setIsUserLocationActive(true)
+
+            // Fetch live Open-Meteo atmospheric metrics
+            fetchLiveWeather(lat, lon).then((wData) => {
+              if (active && wData) {
+                setLiveWeatherData(wData)
+              }
+            })
           })
           .catch(() => {
             if (!active) return
-            setUserLocation({ lat, lon, label: 'Current Location' })
+            const locObj = { lat, lon, label: 'Current Location' }
+            setUserLocation(locObj)
+            setIsUserLocationActive(true)
+            fetchLiveWeather(lat, lon).then((wData) => {
+              if (active && wData) {
+                setLiveWeatherData(wData)
+              }
+            })
           })
 
         // Smoothly center the map on the user's detected coordinates
@@ -119,13 +138,58 @@ export default function App() {
   // Reset selected route and target focus when harbor changes
   function handleSelectHarbor(id) {
     setSelectedHarborId(id)
+    setIsUserLocationActive(false)
     setSelectedRouteId(null)
     setMapFocusTarget(null)
-    setUserLocation((prev) => (prev ? { ...prev, label: null } : null))
+  }
+
+  // Switch to user location view
+  function handleSelectUserLocation() {
+    setIsUserLocationActive(true)
+    if (userLocation?.lat && userLocation?.lon) {
+      setMapFocusTarget({
+        lat: Number(userLocation.lat),
+        lon: Number(userLocation.lon),
+        zoom: 10,
+        label: userLocation.label || 'User Detected Position',
+        timestamp: Date.now()
+      })
+      if (!liveWeatherData) {
+        fetchLiveWeather(userLocation.lat, userLocation.lon).then((data) => {
+          if (data) setLiveWeatherData(data)
+        })
+      }
+    }
+  }
+
+  // Set an inland query location on dashboard
+  function handleSetInlandLocation(inlandObj) {
+    setIsUserLocationActive(true)
+    const lat = inlandObj.lat || (userLocation?.lat ? Number(userLocation.lat) : 26.9124)
+    const lon = inlandObj.lon || (userLocation?.lon ? Number(userLocation.lon) : 75.7873)
+    const label = inlandObj.label || (inlandObj.state ? `${inlandObj.place || inlandObj.city}, ${inlandObj.state}` : (inlandObj.place || 'Inland Position'))
+    setUserLocation({
+      lat,
+      lon,
+      label,
+      city: inlandObj.city || inlandObj.place || 'Inland',
+      state: inlandObj.state || 'India'
+    })
+    setMapFocusTarget({
+      lat,
+      lon,
+      zoom: 10,
+      label,
+      timestamp: Date.now()
+    })
+    fetchLiveWeather(lat, lon).then((data) => {
+      if (data) setLiveWeatherData(data)
+    })
   }
 
   // Demonstration trigger: Synchronous maritime consultation switch & seamless map zoom to Kerala PFZ
   function handleTriggerKeralaDemo() {
+    setIsUserLocationActive(false)
     setSelectedHarborId(19)
     setSelectedRouteId('INCOIS-PFZ-20260825-KER-2856')
     setMapFocusTarget({
@@ -181,6 +245,30 @@ export default function App() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  // Abbreviated user location tag, e.g. "JAI · RJ"
+  const userLocationTag = useMemo(() => {
+    return getCityStateAbbr(userLocation?.city, userLocation?.state)
+  }, [userLocation])
+
+  // Inland position has no oceanographic wave or tide telemetry
+  const hasLiveMarineData = useMemo(() => {
+    if (!isUserLocationActive) return true
+    return false
+  }, [isUserLocationActive])
+
+  // When user location is active, inject live atmospheric metrics into safety data
+  const effectiveSafetyData = useMemo(() => {
+    if (isUserLocationActive && liveWeatherData) {
+      return {
+        ...safetyData,
+        ...liveWeatherData,
+        landing_center_name: userLocation?.label || 'User Location',
+        sector: userLocation?.state ? `Inland (${userLocation.state})` : 'Inland Locality'
+      }
+    }
+    return safetyData
+  }, [isUserLocationActive, liveWeatherData, safetyData, userLocation])
+
   // Unified single source of truth for departure decision and factor evaluation
   const globalAssessment = useMemo(() => {
     return calculateGlobalAssessment({
@@ -192,6 +280,14 @@ export default function App() {
       tides
     })
   }, [selectedHarbor, safetyData, routes, restrictedZones, selectedRouteId, tides])
+
+  // Dynamic active assessment: if inland user location is active, tailor assessment to inland position
+  const activeAssessment = useMemo(() => {
+    if (isUserLocationActive && !hasLiveMarineData) {
+      return evaluateUserLocationAssessment(userLocation, liveWeatherData, selectedHarbor)
+    }
+    return globalAssessment
+  }, [isUserLocationActive, hasLiveMarineData, userLocation, liveWeatherData, selectedHarbor, globalAssessment])
 
   const loading = harborsLoading || safetyLoading || tidesLoading || pfzLoading || navigationLoading || boundariesLoading
   const hasApiError = Boolean(harborsError || safetyError || tidesError || pfzError || navigationError || boundariesError)
@@ -208,9 +304,15 @@ export default function App() {
           harbor={selectedHarbor}
           harbors={harbors}
           onSelectHarbor={handleSelectHarbor}
-          safetyData={safetyData}
+          onSelectUserLocation={handleSelectUserLocation}
+          onSetInlandLocation={handleSetInlandLocation}
+          isUserLocationActive={isUserLocationActive}
+          userLocationTag={userLocationTag}
+          hasLiveMarineData={hasLiveMarineData}
+          liveWeather={liveWeatherData}
+          safetyData={effectiveSafetyData}
           safetyHistory={safetyHistory}
-          assessment={globalAssessment}
+          assessment={activeAssessment}
           onOpenAssessment={() => setAssessmentModalOpen(true)}
           loading={loading}
           hasApiError={hasApiError}
@@ -220,7 +322,7 @@ export default function App() {
           routes={routes}
           restrictedZones={restrictedZones}
           maritimeBoundaries={maritimeBoundaries}
-          selectedRouteId={selectedRouteId || globalAssessment?.selectedRoute?.advisory_id}
+          selectedRouteId={selectedRouteId || activeAssessment?.selectedRoute?.advisory_id}
           onSelectRoute={setSelectedRouteId}
           mapFocusTarget={mapFocusTarget}
           userLocation={userLocation}
@@ -236,7 +338,7 @@ export default function App() {
               isOpen={assessmentModalOpen}
               onClose={() => setAssessmentModalOpen(false)}
               harbor={selectedHarbor}
-              assessment={globalAssessment}
+              assessment={activeAssessment}
               onOpenRoutes={() => {
                 const btn = document.querySelector('.map-section__route-btn')
                 if (btn) btn.click()
@@ -262,8 +364,13 @@ export default function App() {
           harbor={selectedHarbor}
           harbors={harbors}
           onSelectHarbor={handleSelectHarbor}
-          safetyData={safetyData}
-          assessment={globalAssessment}
+          onSelectUserLocation={handleSelectUserLocation}
+          isUserLocationActive={isUserLocationActive}
+          userLocationTag={userLocationTag}
+          hasLiveMarineData={hasLiveMarineData}
+          userLocation={userLocation}
+          safetyData={effectiveSafetyData}
+          assessment={activeAssessment}
           onOpenAssessment={() => setAssessmentModalOpen(true)}
           loading={loading}
           hasApiError={hasApiError}
@@ -274,27 +381,33 @@ export default function App() {
             harbor={selectedHarbor}
             harbors={harbors}
             onSelectHarbor={handleSelectHarbor}
-            safetyData={safetyData}
+            safetyData={effectiveSafetyData}
             advisories={advisories}
             routes={routes}
             restrictedZones={restrictedZones}
             maritimeBoundaries={maritimeBoundaries}
-            selectedRouteId={selectedRouteId || globalAssessment?.selectedRoute?.advisory_id}
+            selectedRouteId={selectedRouteId || activeAssessment?.selectedRoute?.advisory_id}
             onSelectRoute={setSelectedRouteId}
-            assessment={globalAssessment}
+            assessment={activeAssessment}
             onOpenAssessment={() => setAssessmentModalOpen(true)}
             loading={loading}
             hasApiError={hasApiError}
             mapFocusTarget={mapFocusTarget}
             userLocation={userLocation}
+            isUserLocationActive={isUserLocationActive}
+            hasLiveMarineData={hasLiveMarineData}
+            liveWeather={liveWeatherData}
           />
           <TopicCardsGrid
             harbor={selectedHarbor}
-            safetyData={safetyData}
+            safetyData={effectiveSafetyData}
             safetyHistory={safetyHistory}
             tides={tides}
             tideMeta={tideMeta}
             loading={loading}
+            hasLiveMarineData={hasLiveMarineData}
+            userLocation={userLocation}
+            isUserLocationActive={isUserLocationActive}
           />
         </div>
       </main>
@@ -303,17 +416,22 @@ export default function App() {
       <ChatPanel
         harbor={selectedHarbor}
         harbors={harbors}
-        safetyData={safetyData}
+        safetyData={effectiveSafetyData}
         tides={tides}
         advisories={advisories}
         messages={messages}
         onAddMessage={handleAddMessage}
-        assessment={globalAssessment}
-        selectedRoute={globalAssessment?.selectedRoute}
+        assessment={activeAssessment}
+        selectedRoute={activeAssessment?.selectedRoute}
         onOpenAssessment={() => setAssessmentModalOpen(true)}
         hasApiError={hasApiError}
         onTriggerKeralaDemo={handleTriggerKeralaDemo}
         onSelectHarbor={handleSelectHarbor}
+        onSelectUserLocation={handleSelectUserLocation}
+        onSetInlandLocation={handleSetInlandLocation}
+        isUserLocationActive={isUserLocationActive}
+        userLocationTag={userLocationTag}
+        userLocation={userLocation}
         onMapFocus={setMapFocusTarget}
       />
 
@@ -324,7 +442,7 @@ export default function App() {
             isOpen={assessmentModalOpen}
             onClose={() => setAssessmentModalOpen(false)}
             harbor={selectedHarbor}
-            assessment={globalAssessment}
+            assessment={activeAssessment}
             onOpenRoutes={() => {
               const btn = document.querySelector('.map-section__route-btn')
               if (btn) btn.click()

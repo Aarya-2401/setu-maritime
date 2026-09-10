@@ -16,7 +16,12 @@ export default function TopBar({
   assessment,
   onOpenAssessment,
   loading,
-  hasApiError
+  hasApiError,
+  userLocation,
+  isUserLocationActive,
+  onSelectUserLocation,
+  userLocationTag,
+  hasLiveMarineData = true
 }) {
   const [currentTime, setCurrentTime] = useState(() => new Date())
 
@@ -58,28 +63,54 @@ export default function TopBar({
 
         <div
           className="topbar__search"
-          title={harbor ? `${harbor.landing_center_name || 'Harbor'} (${harbor.state || ''}) · UN/LOCODE: ${getUNLocode(harbor)} · ${getHarborAuthority(harbor)}` : 'Harbor selection'}
+          title={
+            isUserLocationActive && userLocation
+              ? `${userLocation.label} · User Detected Position (${userLocationTag})`
+              : harbor
+              ? `${harbor.landing_center_name || 'Harbor'} (${harbor.state || ''}) · UN/LOCODE: ${getUNLocode(harbor)} · ${getHarborAuthority(harbor)}`
+              : 'Location selection'
+          }
         >
           <span className="topbar__pin">
-            <IconLocation size={12} color="#35c9e8" />
+            <IconLocation size={12} color={isUserLocationActive ? '#10b981' : '#35c9e8'} />
           </span>
           <span className="topbar__station-tag">
-            {harbor ? getFormattedHarborTag(harbor) : 'HAR · --'}
+            {isUserLocationActive
+              ? userLocationTag
+              : harbor
+              ? getFormattedHarborTag(harbor)
+              : 'HAR · --'}
           </span>
-          <span className="topbar__locode-badge">
-            {harbor ? getUNLocode(harbor) : 'UN/LOCODE'}
+          <span
+            className="topbar__locode-badge"
+            style={isUserLocationActive ? { borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' } : {}}
+          >
+            {isUserLocationActive ? 'YOU' : harbor ? getUNLocode(harbor) : 'UN/LOCODE'}
           </span>
           <span className="topbar__chevron">
             <IconChevronDown size={8} color="#35c9e8" />
           </span>
 
-          {/* Native dropdown overlay grouped by coastal state with official maritime tags */}
+          {/* Native dropdown overlay with user location and coastal states */}
           <select
             className="topbar__harbor-select"
-            value={harbor?.harbor_id || ''}
-            onChange={(e) => onSelectHarbor(Number(e.target.value))}
-            aria-label="Select departure harbor station"
+            value={isUserLocationActive ? 'user_location' : (harbor?.harbor_id || '')}
+            onChange={(e) => {
+              if (e.target.value === 'user_location') {
+                if (onSelectUserLocation) onSelectUserLocation()
+              } else {
+                onSelectHarbor(Number(e.target.value))
+              }
+            }}
+            aria-label="Select departure harbor station or user location"
           >
+            {userLocation?.city && (
+              <optgroup label="USER DETECTED LOCATION">
+                <option value="user_location">
+                  {userLocationTag} — {userLocation.label} (Current Position)
+                </option>
+              </optgroup>
+            )}
             {Object.keys(groupedHarbors).length > 0 ? (
               Object.entries(groupedHarbors).map(([stateName, list]) => (
                 <optgroup key={stateName} label={`${stateName.toUpperCase()} (${list.length})`}>
@@ -101,7 +132,7 @@ export default function TopBar({
         {/* Telemetry Strip docked cleanly in Left Column */}
         <div
           className="topbar__telemetry"
-          title="Harbor Oceanographic & Atmospheric Telemetry Station (INCOIS / C-DAC Node)"
+          title={isUserLocationActive ? 'User Location Live Atmospheric Telemetry' : 'Harbor Oceanographic & Atmospheric Telemetry Station (INCOIS / C-DAC Node)'}
         >
           <div className="telemetry-pill">
             <IconCloud size={12} color="#35c9e8" />
@@ -114,12 +145,16 @@ export default function TopBar({
             <span className="telemetry-val">{fmt(safetyData?.wind_speed_kmph, ' km/h', 0)}</span>
             <span className="telemetry-lbl">Wind</span>
           </div>
-          <div className="telemetry-sep" />
-          <div className="telemetry-pill">
-            <IconWave size={12} color="#35c9e8" />
-            <span className="telemetry-val">{fmt(safetyData?.significant_wave_height_m, 'm')}</span>
-            <span className="telemetry-lbl">Wave</span>
-          </div>
+          {hasLiveMarineData && (
+            <>
+              <div className="telemetry-sep" />
+              <div className="telemetry-pill">
+                <IconWave size={12} color="#35c9e8" />
+                <span className="telemetry-val">{fmt(safetyData?.significant_wave_height_m, 'm')}</span>
+                <span className="telemetry-lbl">Wave</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
 

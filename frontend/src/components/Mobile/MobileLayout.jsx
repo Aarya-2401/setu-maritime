@@ -85,6 +85,12 @@ export default function MobileLayout({
   harbor,
   harbors,
   onSelectHarbor,
+  onSelectUserLocation,
+  onSetInlandLocation,
+  isUserLocationActive = false,
+  userLocationTag,
+  hasLiveMarineData = true,
+  liveWeather = null,
   safetyData,
   safetyHistory,
   assessment,
@@ -144,16 +150,18 @@ export default function MobileLayout({
 
   // Determine current display location text
   const locationText = useMemo(() => {
-    if (userLocation?.label) return userLocation.label
+    if (isUserLocationActive && userLocation?.label) return userLocation.label
     if (harbor?.landing_center_name && harbor?.state) {
       return `${harbor.landing_center_name}, ${harbor.state}`
     }
     if (harbor?.landing_center_name) return harbor.landing_center_name
     return 'Jaipur, Rajasthan'
-  }, [userLocation, harbor])
+  }, [isUserLocationActive, userLocation, harbor])
 
   // Telemetry metric formatting
-  const locationName = harbor?.landing_center_name || 'Coastal Station'
+  const locationName = isUserLocationActive && userLocation?.label
+    ? userLocation.label
+    : (harbor?.landing_center_name || 'Coastal Station')
   const airTemp = safetyData?.air_temp_celsius != null ? Math.round(safetyData.air_temp_celsius) : null
   const tempVal = airTemp != null ? `${airTemp} °C` : '-- °C'
   const pressureVal = safetyData?.surface_pressure_hpa != null ? `${Number(safetyData.surface_pressure_hpa).toFixed(0)} hPa` : '-- hPa'
@@ -322,8 +330,13 @@ export default function MobileLayout({
     setChatInput('')
     setTyping(true)
 
-    // Check if query targets an inland non-maritime region
+    // Check if query targets user location or an inland region
     const inlandMatch = detectInlandLocation(trimmed)
+    if (inlandMatch?.isUserPositionQuery && onSelectUserLocation) {
+      onSelectUserLocation()
+    } else if (inlandMatch && onSetInlandLocation) {
+      onSetInlandLocation(inlandMatch)
+    }
 
     // Proactively scan user text against recognized coastal harbors
     const lower = trimmed.toLowerCase()
@@ -376,7 +389,33 @@ export default function MobileLayout({
     try {
       const aiResponse = await askOrcaAI(trimmed)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        if (aiResponse.locationStatus === 'SUPPORTED' || aiResponse.locationStatus === 'COASTAL_STATE') {
+        if (aiResponse.isInland || aiResponse.locationStatus === 'INLAND') {
+          // Inland location: retain fallback harbor (harbor_id 1, Veraval) in background
+          if (aiResponse.harborId && onSelectHarbor) {
+            onSelectHarbor(aiResponse.harborId)
+          }
+
+          if (aiResponse.mapUpdate?.location && onMapFocus) {
+            onMapFocus({
+              lat: Number(aiResponse.mapUpdate.location.latitude),
+              lon: Number(aiResponse.mapUpdate.location.longitude),
+              zoom: aiResponse.mapUpdate.zoom || 10,
+              label: aiResponse.mapUpdate.location.name,
+              timestamp: Date.now()
+            })
+          }
+
+          if (onSetInlandLocation && aiResponse.mapUpdate?.location) {
+            onSetInlandLocation({
+              lat: Number(aiResponse.mapUpdate.location.latitude),
+              lon: Number(aiResponse.mapUpdate.location.longitude),
+              place: aiResponse.location || aiResponse.mapUpdate.location.name,
+              label: aiResponse.mapUpdate.location.name
+            })
+          } else if (onSelectUserLocation) {
+            onSelectUserLocation()
+          }
+        } else if (aiResponse.locationStatus === 'SUPPORTED' || aiResponse.locationStatus === 'COASTAL_STATE') {
           if (aiResponse.harborId && onSelectHarbor) {
             onSelectHarbor(aiResponse.harborId)
           } else if (aiResponse.resolvedHarbor?.harbor_id && onSelectHarbor) {
@@ -419,10 +458,11 @@ export default function MobileLayout({
     // Inland location detection fallback
     if (inlandMatch) {
       setTimeout(() => {
+        const place = inlandMatch.place
         const reply = {
           id: getMessageUUID(),
           role: 'assistant',
-          text: `${inlandMatch.place} is an inland location with no maritime coast or marine fishing harbor. SETU monitors coastal operations across recognized fishing harbors. Try selecting a nearby harbor:`,
+          text: `${place} is an inland location with no open coastline. I have updated your dashboard title cards with the live local weather and surface winds for ${place}, centered your locality radar map on ${place}, and maintained Veraval Fishing Harbor, Gujarat as your regional maritime reference point.`,
           time: formatCurrentTime(new Date()),
           suggestions: inlandMatch.suggestions
         }
@@ -475,18 +515,33 @@ export default function MobileLayout({
           <span className="mobile-header__title">SETU-ADAM01</span>
         </div>
 
-        <div className="mobile-header__location-pill" title="Tap to select fishing harbor">
-          <IconLocation size={13} color="#38bdf8" />
-          <span className="mobile-header__location-text">{locationText}</span>
+        <div className="mobile-header__location-pill" title="Tap to select location">
+          <IconLocation size={13} color={isUserLocationActive ? '#10b981' : '#38bdf8'} />
+          <span className="mobile-header__location-text">
+            {isUserLocationActive ? `${locationText} (YOU)` : locationText}
+          </span>
           <IconChevronDown size={10} color="#94a3b8" />
 
-          {/* Native select overlay for modal-free harbor selection */}
+          {/* Native select overlay for modal-free harbor and user location selection */}
           <select
             className="mobile-header__select-overlay"
-            value={harbor?.harbor_id || ''}
-            onChange={(e) => onSelectHarbor(Number(e.target.value))}
-            aria-label="Select harbor location"
+            value={isUserLocationActive ? 'user_location' : (harbor?.harbor_id || '')}
+            onChange={(e) => {
+              if (e.target.value === 'user_location') {
+                if (onSelectUserLocation) onSelectUserLocation()
+              } else {
+                onSelectHarbor(Number(e.target.value))
+              }
+            }}
+            aria-label="Select harbor or user location"
           >
+            {userLocation?.city && (
+              <optgroup label="USER DETECTED LOCATION">
+                <option value="user_location">
+                  {userLocationTag} — {userLocation.label} (Current Position)
+                </option>
+              </optgroup>
+            )}
             {Object.keys(groupedHarbors).length > 0 ? (
               Object.entries(groupedHarbors).map(([stateName, list]) => (
                 <optgroup key={stateName} label={`${stateName.toUpperCase()} (${list.length})`}>
@@ -506,9 +561,9 @@ export default function MobileLayout({
         </div>
       </header>
 
-      {/* 2. Four Telemetry Information Capsules (Home Tab Only) */}
+      {/* 2. Telemetry Information Capsules (Home Tab Only) */}
       {activeNav === 'home' && (
-        <section className="mobile-telemetry-capsules mobile-tab-view" aria-label="Harbor telemetry capsules">
+        <section className={`mobile-telemetry-capsules mobile-tab-view${!hasLiveMarineData ? ' mobile-telemetry-capsules--two' : ''}`} aria-label="Harbor telemetry capsules">
           <button
             type="button"
             className="mobile-telemetry-capsule"
@@ -541,37 +596,41 @@ export default function MobileLayout({
             </div>
           </button>
 
-          <button
-            type="button"
-            className="mobile-telemetry-capsule"
-            onClick={() => setActiveModal('waves')}
-            title="Wave and sea state: tap for hourly sequence and swell profile"
-            aria-label="View Waves Details"
-          >
-            <span className="mobile-capsule-icon">
-              <IconWave size={14} color="#38bdf8" />
-            </span>
-            <div className="mobile-capsule-info">
-              <span className="mobile-capsule-val">{waveVal}</span>
-              <span className="mobile-capsule-lbl">Waves</span>
-            </div>
-          </button>
+          {hasLiveMarineData && (
+            <>
+              <button
+                type="button"
+                className="mobile-telemetry-capsule"
+                onClick={() => setActiveModal('waves')}
+                title="Wave and sea state: tap for hourly sequence and swell profile"
+                aria-label="View Waves Details"
+              >
+                <span className="mobile-capsule-icon">
+                  <IconWave size={14} color="#38bdf8" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val">{waveVal}</span>
+                  <span className="mobile-capsule-lbl">Waves</span>
+                </div>
+              </button>
 
-          <button
-            type="button"
-            className="mobile-telemetry-capsule"
-            onClick={() => setActiveModal('tide')}
-            title="Tidal cycle: tap for harmonic predictions and high/low peaks"
-            aria-label="View Tide Details"
-          >
-            <span className="mobile-capsule-icon">
-              <IconTide size={14} color="#38bdf8" />
-            </span>
-            <div className="mobile-capsule-info">
-              <span className="mobile-capsule-val">{tideVal}</span>
-              <span className="mobile-capsule-lbl">Tide</span>
-            </div>
-          </button>
+              <button
+                type="button"
+                className="mobile-telemetry-capsule"
+                onClick={() => setActiveModal('tide')}
+                title="Tidal cycle: tap for harmonic predictions and high/low peaks"
+                aria-label="View Tide Details"
+              >
+                <span className="mobile-capsule-icon">
+                  <IconTide size={14} color="#38bdf8" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val">{tideVal}</span>
+                  <span className="mobile-capsule-lbl">Tide</span>
+                </div>
+              </button>
+            </>
+          )}
         </section>
       )}
 
@@ -585,7 +644,9 @@ export default function MobileLayout({
               </span>
               <div>
                 <h3 className="mobile-alerts-header__title">Departure Assessment</h3>
-                <span className="mobile-alerts-header__sub">{locationText} [UN/LOCODE: {locode}]</span>
+                <span className="mobile-alerts-header__sub">
+                  {locationText} [{isUserLocationActive ? 'YOU · INLAND' : `UN/LOCODE: ${locode}`}]
+                </span>
               </div>
             </div>
             <div className="mobile-alerts-status-pill" style={{ borderColor: statusColor, color: statusColor }}>
@@ -715,7 +776,9 @@ export default function MobileLayout({
               {activeNav === 'map' ? 'Expanded Maritime Chart' : 'Live Map'}
             </h3>
             <p className="mobile-map-subtitle">
-              Wind · Waves · Fishing zones near {locationText}
+              {hasLiveMarineData
+                ? `Wind · Waves · Fishing zones near ${locationText}`
+                : `Weather · Surface Winds · Radar near ${locationText}`}
             </p>
           </div>
           <div className="mobile-map-header__actions">
@@ -765,6 +828,9 @@ export default function MobileLayout({
             hasApiError={hasApiError}
             mapFocusTarget={mapFocusTarget}
             userLocation={userLocation}
+            isUserLocationActive={isUserLocationActive}
+            hasLiveMarineData={hasLiveMarineData}
+            liveWeather={liveWeather}
             isMobile={true}
           />
         </div>
