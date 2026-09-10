@@ -6,7 +6,6 @@ const BACKEND_TARGET = process.env.VITE_BACKEND_URL || 'https://setu-maritime-pr
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: true,
     port: 5173,
     proxy: {
       '/api': {
@@ -17,7 +16,6 @@ export default defineConfig({
     }
   },
   preview: {
-    host: true,
     port: 5173,
     proxy: {
       '/api': {
