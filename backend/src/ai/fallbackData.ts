@@ -1,0 +1,1404 @@
+// Fallback datasets for zero-downtime offline execution
+// Loaded when MySQL connection is unavailable, timing out, or empty.
+
+export interface FallbackRestrictedZone {
+  zone_id: string;
+  boundary_id: string;
+  zone_name: string;
+  state: string;
+  latitude: number;
+  longitude: number;
+  area_km2: number;
+  zone_type: string;
+  restriction_details: string;
+  active_months: string;
+  source: string;
+}
+
+export interface FallbackHarbor {
+  harbor_id: number;
+  landing_center_name: string;
+  state: string;
+  district: string;
+  latitude: number;
+  longitude: number;
+  harbor_type: string;
+  facilities: string;
+}
+
+export const FALLBACK_RESTRICTED_ZONES: FallbackRestrictedZone[] = [
+  {
+    "zone_id": "IND-MPA-001",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Gulf of Mannar Marine National Park & Biosphere Reserve",
+    "state": "Tamil Nadu",
+    "latitude": 9.14,
+    "longitude": 79.08,
+    "area_km2": 560,
+    "zone_type": "MPA",
+    "restriction_details": "Strict No-Take Marine Zone — Coral reefs, Dugong (Sea Cow), Green Sea Turtles, Seagrass meadows",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-002",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Mahatma Gandhi Marine National Park (Wandoor)",
+    "state": "Andaman & Nicobar",
+    "latitude": 11.58,
+    "longitude": 92.63,
+    "area_km2": 281.5,
+    "zone_type": "MPA",
+    "restriction_details": "Strict Marine Protected Sanctuary — Fringing coral reefs, Hawksbill turtle nesting, 271 coral species",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-003",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Marine National Park & Sanctuary (Gulf of Kutch)",
+    "state": "Gujarat",
+    "latitude": 22.42,
+    "longitude": 69.17,
+    "area_km2": 457.9,
+    "zone_type": "MPA",
+    "restriction_details": "Strict Ecological Conservation Zone — Mangroves, Corals, Whale Shark, Sponge colonies, Pearl Oysters",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-004",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Gahirmatha Marine Sanctuary",
+    "state": "Odisha",
+    "latitude": 20.73,
+    "longitude": 87.07,
+    "area_km2": 1435,
+    "zone_type": "MPA",
+    "restriction_details": "Seasonal & Permanent No-Fishing Sanctuary — World's largest Olive Ridley Sea Turtle rookery (Arribada nesting site)",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-005",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Sundarbans National Park (Marine & Estuarine Biosphere)",
+    "state": "West Bengal",
+    "latitude": 21.94,
+    "longitude": 88.9,
+    "area_km2": 1330.1,
+    "zone_type": "MPA",
+    "restriction_details": "Strict Tidal Estuarine Reserve — Royal Bengal Tiger, Irrawaddy Dolphin, Saltwater Crocodile, Mangrove ecosystem",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-006",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Malvan Marine Sanctuary (Sindhudurg Fort)",
+    "state": "Maharashtra",
+    "latitude": 16.06,
+    "longitude": 73.46,
+    "area_km2": 29.1,
+    "zone_type": "MPA",
+    "restriction_details": "No-Take Ecological Reserve — Submerged coral patches, Pearl oysters, Sea anemones, Seaweeds",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-007",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Rani Jhansi Marine National Park (Ritchie's Archipelago)",
+    "state": "Andaman & Nicobar",
+    "latitude": 12.08,
+    "longitude": 92.88,
+    "area_km2": 256.1,
+    "zone_type": "MPA",
+    "restriction_details": "Strict Island Coral Reserve — Coral reef lagoon, Dugong, Fruit bats, Saltwater crocodile",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-008",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "Bhitarkanika Marine & Mangrove National Park",
+    "state": "Odisha",
+    "latitude": 20.73,
+    "longitude": 86.87,
+    "area_km2": 145,
+    "zone_type": "MPA",
+    "restriction_details": "Strict Estuarine Protected Zone — Giant Saltwater Crocodiles, 8 Kingfisher species, Mangrove forests",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-009",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "East Coast Monsoon Marine Fishing Ban (Annual 61-Day)",
+    "state": "TN, AP, Odisha, WB",
+    "latitude": 14.5,
+    "longitude": 83,
+    "area_km2": 45000,
+    "zone_type": "NO_FISHING",
+    "restriction_details": "Seasonal Ban: April 15 to June 14 — Breeding and spawning season protection for commercially important marine species",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  },
+  {
+    "zone_id": "IND-MPA-010",
+    "boundary_id": "IND-EEZ-001",
+    "zone_name": "West Coast Monsoon Marine Fishing Ban (Annual 61-Day)",
+    "state": "Gujarat, MH, Goa, Karnataka, Kerala",
+    "latitude": 15,
+    "longitude": 72.5,
+    "area_km2": 55000,
+    "zone_type": "NO_FISHING",
+    "restriction_details": "Seasonal Ban: June 1 to July 31 — Monsoon pelagic spawning stock regeneration (Sardine, Mackerel, Prawn juveniles)",
+    "active_months": "All Year (Permanent Sanctuary)",
+    "source": "WDPA (ProtectedPlanet) / MoEFCC Wildlife Institute of India"
+  }
+];
+
+export const FALLBACK_HARBORS: FallbackHarbor[] = [
+  {
+    "harbor_id": 1,
+    "landing_center_name": "Veraval Fishing Harbor",
+    "state": "Gujarat",
+    "district": "Gir Somnath",
+    "latitude": 20.905,
+    "longitude": 70.357,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 2,
+    "landing_center_name": "Porbandar Fishing Harbor",
+    "state": "Gujarat",
+    "district": "Porbandar",
+    "latitude": 21.634,
+    "longitude": 69.616,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 3,
+    "landing_center_name": "Okha Port Landing Center",
+    "state": "Gujarat",
+    "district": "Devbhumi Dwarka",
+    "latitude": 22.467,
+    "longitude": 69.069,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 4,
+    "landing_center_name": "Mangrol Fish Landing Center",
+    "state": "Gujarat",
+    "district": "Junagadh",
+    "latitude": 21.118,
+    "longitude": 70.114,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 5,
+    "landing_center_name": "Jafarabad Landing Center",
+    "state": "Gujarat",
+    "district": "Amreli",
+    "latitude": 20.865,
+    "longitude": 71.365,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 6,
+    "landing_center_name": "Sassoon Dock Harbor",
+    "state": "Maharashtra",
+    "district": "Mumbai City",
+    "latitude": 18.9067,
+    "longitude": 72.831,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 7,
+    "landing_center_name": "Versova Fish Landing Center",
+    "state": "Maharashtra",
+    "district": "Mumbai Suburban",
+    "latitude": 19.138,
+    "longitude": 72.812,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 8,
+    "landing_center_name": "Ratnagiri Mirkarwada Harbor",
+    "state": "Maharashtra",
+    "district": "Ratnagiri",
+    "latitude": 16.985,
+    "longitude": 73.284,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 9,
+    "landing_center_name": "Malvan Fishery Port",
+    "state": "Maharashtra",
+    "district": "Sindhudurg",
+    "latitude": 16.059,
+    "longitude": 73.465,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 10,
+    "landing_center_name": "Satpati Landing Center",
+    "state": "Maharashtra",
+    "district": "Palghar",
+    "latitude": 19.734,
+    "longitude": 72.702,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 11,
+    "landing_center_name": "Cutbon Fishing Harbor",
+    "state": "Goa",
+    "district": "South Goa",
+    "latitude": 15.178,
+    "longitude": 73.948,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 12,
+    "landing_center_name": "Malim Jetty (Panaji)",
+    "state": "Goa",
+    "district": "North Goa",
+    "latitude": 15.508,
+    "longitude": 73.832,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 13,
+    "landing_center_name": "Chapora Fish Landing Center",
+    "state": "Goa",
+    "district": "North Goa",
+    "latitude": 15.607,
+    "longitude": 73.738,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 14,
+    "landing_center_name": "Mangalore Old Port (Bunder)",
+    "state": "Karnataka",
+    "district": "Dakshina Kannada",
+    "latitude": 12.861,
+    "longitude": 74.834,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 15,
+    "landing_center_name": "Malpe Fishing Harbor",
+    "state": "Karnataka",
+    "district": "Udupi",
+    "latitude": 13.35,
+    "longitude": 74.707,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 16,
+    "landing_center_name": "Tadri Fish Port",
+    "state": "Karnataka",
+    "district": "Uttara Kannada",
+    "latitude": 14.529,
+    "longitude": 74.348,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 17,
+    "landing_center_name": "Honnavar Landing Center",
+    "state": "Karnataka",
+    "district": "Uttara Kannada",
+    "latitude": 14.283,
+    "longitude": 74.445,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 18,
+    "landing_center_name": "Karwar Fishery Port (Baithkol)",
+    "state": "Karnataka",
+    "district": "Uttara Kannada",
+    "latitude": 14.805,
+    "longitude": 74.125,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 19,
+    "landing_center_name": "Cochin Fishing Harbor (Thoppumpady)",
+    "state": "Kerala",
+    "district": "Ernakulam",
+    "latitude": 9.968,
+    "longitude": 76.243,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 20,
+    "landing_center_name": "Munambam Harbor",
+    "state": "Kerala",
+    "district": "Ernakulam",
+    "latitude": 10.179,
+    "longitude": 76.173,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 21,
+    "landing_center_name": "Beypore Fishery Harbor",
+    "state": "Kerala",
+    "district": "Kozhikode",
+    "latitude": 11.171,
+    "longitude": 75.807,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 22,
+    "landing_center_name": "Sakthikulangara-Neendakara Harbor",
+    "state": "Kerala",
+    "district": "Kollam",
+    "latitude": 8.941,
+    "longitude": 76.541,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 23,
+    "landing_center_name": "Vizhinjam Fishery Harbor",
+    "state": "Kerala",
+    "district": "Thiruvananthapuram",
+    "latitude": 8.375,
+    "longitude": 76.993,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 24,
+    "landing_center_name": "Mopla Bay Harbor (Kannur)",
+    "state": "Kerala",
+    "district": "Kannur",
+    "latitude": 11.854,
+    "longitude": 75.372,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 25,
+    "landing_center_name": "Tuticorin Fishing Harbor",
+    "state": "Tamil Nadu",
+    "district": "Thoothukudi",
+    "latitude": 8.764,
+    "longitude": 78.158,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 26,
+    "landing_center_name": "Rameswaram Fishing Jetty",
+    "state": "Tamil Nadu",
+    "district": "Ramanathapuram",
+    "latitude": 9.288,
+    "longitude": 79.313,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 27,
+    "landing_center_name": "Colachel Fishery Port",
+    "state": "Tamil Nadu",
+    "district": "Kanyakumari",
+    "latitude": 8.175,
+    "longitude": 77.258,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 28,
+    "landing_center_name": "Chinnamuttam Harbor",
+    "state": "Tamil Nadu",
+    "district": "Kanyakumari",
+    "latitude": 8.093,
+    "longitude": 77.561,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 29,
+    "landing_center_name": "Mandapam Landing Center",
+    "state": "Tamil Nadu",
+    "district": "Ramanathapuram",
+    "latitude": 9.277,
+    "longitude": 79.132,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 30,
+    "landing_center_name": "Kasimedu (Chennai Fishing Harbor)",
+    "state": "Tamil Nadu",
+    "district": "Chennai",
+    "latitude": 13.115,
+    "longitude": 80.294,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 31,
+    "landing_center_name": "Cuddalore Old Town Harbor",
+    "state": "Tamil Nadu",
+    "district": "Cuddalore",
+    "latitude": 11.75,
+    "longitude": 79.77,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 32,
+    "landing_center_name": "Nagapattinam Fishing Harbor",
+    "state": "Tamil Nadu",
+    "district": "Nagapattinam",
+    "latitude": 10.763,
+    "longitude": 79.848,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 33,
+    "landing_center_name": "Poompuhar Fish Landing Center",
+    "state": "Tamil Nadu",
+    "district": "Mayiladuthurai",
+    "latitude": 11.144,
+    "longitude": 79.855,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 34,
+    "landing_center_name": "Krishnapatnam Landing Center",
+    "state": "Andhra Pradesh",
+    "district": "SPSR Nellore",
+    "latitude": 14.256,
+    "longitude": 80.125,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 35,
+    "landing_center_name": "Nizampatnam Fishing Harbor",
+    "state": "Andhra Pradesh",
+    "district": "Bapatla",
+    "latitude": 15.908,
+    "longitude": 80.672,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 36,
+    "landing_center_name": "Machilipatnam (Gilakaladindi)",
+    "state": "Andhra Pradesh",
+    "district": "Krishna",
+    "latitude": 16.187,
+    "longitude": 81.138,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 37,
+    "landing_center_name": "Visakhapatnam Fishing Harbor",
+    "state": "Andhra Pradesh",
+    "district": "Visakhapatnam",
+    "latitude": 17.7,
+    "longitude": 83.28,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 38,
+    "landing_center_name": "Kakinada Fishing Harbor",
+    "state": "Andhra Pradesh",
+    "district": "Kakinada",
+    "latitude": 16.944,
+    "longitude": 82.251,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 39,
+    "landing_center_name": "Bhavanapadu Fishing Harbor",
+    "state": "Andhra Pradesh",
+    "district": "Srikakulam",
+    "latitude": 18.572,
+    "longitude": 84.351,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 40,
+    "landing_center_name": "Pudimadaka Fish Landing Center",
+    "state": "Andhra Pradesh",
+    "district": "Anakapalli",
+    "latitude": 17.498,
+    "longitude": 83.003,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 41,
+    "landing_center_name": "Paradip Fishing Harbor",
+    "state": "Odisha",
+    "district": "Jagatsinghpur",
+    "latitude": 20.316,
+    "longitude": 86.612,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 42,
+    "landing_center_name": "Dhamra Fishing Harbor",
+    "state": "Odisha",
+    "district": "Bhadrak",
+    "latitude": 20.759,
+    "longitude": 86.949,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 43,
+    "landing_center_name": "Puri Fish Landing Center",
+    "state": "Odisha",
+    "district": "Puri",
+    "latitude": 19.798,
+    "longitude": 85.831,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 44,
+    "landing_center_name": "Gopalpur Fish Landing Center",
+    "state": "Odisha",
+    "district": "Ganjam",
+    "latitude": 19.26,
+    "longitude": 84.91,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 45,
+    "landing_center_name": "Digha (Sankarpur) Fishing Harbor",
+    "state": "West Bengal",
+    "district": "Purba Medinipur",
+    "latitude": 21.628,
+    "longitude": 87.548,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 46,
+    "landing_center_name": "Kakdwip Fish Harbor",
+    "state": "West Bengal",
+    "district": "South 24 Parganas",
+    "latitude": 21.876,
+    "longitude": 88.188,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 47,
+    "landing_center_name": "Sultanpur Fish Landing Center",
+    "state": "West Bengal",
+    "district": "South 24 Parganas",
+    "latitude": 22.091,
+    "longitude": 88.204,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 48,
+    "landing_center_name": "Fraserganj Harbor",
+    "state": "West Bengal",
+    "district": "South 24 Parganas",
+    "latitude": 21.583,
+    "longitude": 88.25,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 49,
+    "landing_center_name": "Kavaratti Jetty",
+    "state": "Lakshadweep",
+    "district": "Lakshadweep",
+    "latitude": 10.566,
+    "longitude": 72.641,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 50,
+    "landing_center_name": "Agatti Fish Landing Center",
+    "state": "Lakshadweep",
+    "district": "Lakshadweep",
+    "latitude": 10.853,
+    "longitude": 72.193,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 51,
+    "landing_center_name": "Minicoy Fishery Jetty",
+    "state": "Lakshadweep",
+    "district": "Lakshadweep",
+    "latitude": 8.283,
+    "longitude": 73.048,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 52,
+    "landing_center_name": "Junglighat Fishing Jetty (Port Blair)",
+    "state": "Andaman & Nicobar",
+    "district": "South Andaman",
+    "latitude": 11.662,
+    "longitude": 92.726,
+    "harbor_type": "MAJOR",
+    "facilities": "Ice Plants, Cold Storage, Fuel Bunkering, Auction Hall, Net Mending Sheds, Navigational Beacon"
+  },
+  {
+    "harbor_id": 53,
+    "landing_center_name": "Diglipur Fishery Jetty",
+    "state": "Andaman & Nicobar",
+    "district": "North & Middle Andaman",
+    "latitude": 13.267,
+    "longitude": 92.983,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 54,
+    "landing_center_name": "Havelock Island (Swaraj Dweep) Jetty",
+    "state": "Andaman & Nicobar",
+    "district": "South Andaman",
+    "latitude": 11.983,
+    "longitude": 92.983,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 55,
+    "landing_center_name": "Car Nicobar Fishery Center",
+    "state": "Andaman & Nicobar",
+    "district": "Nicobar",
+    "latitude": 9.175,
+    "longitude": 92.812,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  },
+  {
+    "harbor_id": 56,
+    "landing_center_name": "Campbell Bay Jetty",
+    "state": "Andaman & Nicobar",
+    "district": "Great Nicobar",
+    "latitude": 7.005,
+    "longitude": 93.928,
+    "harbor_type": "LANDING_CENTER",
+    "facilities": "Ice Boxes, Covered Auction Platform, Net Mending Area, Freshwater Tank"
+  }
+];
+
+export const FALLBACK_PFZ_NATIONAL: any[] = [
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-GUJ-0001",
+    "harbor_id": 1,
+    "state": "Gujarat",
+    "latitude": 20.5792,
+    "longitude": 70.2129,
+    "target_species": "Pomfrets, Bombay Duck, Ribbonfish",
+    "chlorophyll_a": 3.23,
+    "sst_celsius": 27.5,
+    "depth_contour_m": 56,
+    "recommended_gear": "Trawl Net",
+    "distance_km": 39.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 39.2 km (21.2 NM) SSW of Veraval Fishing Harbor. Depth: 56 m. Prominent thermal front (SST: 27.5°C, Chl-a: 3.23 mg/m³). Recommended target: Pomfrets, Bombay Duck, Ribbonfish. Ideal gear: Trawl Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-GUJ-0002",
+    "harbor_id": 2,
+    "state": "Gujarat",
+    "latitude": 21.6336,
+    "longitude": 69.2687,
+    "target_species": "Bombay Duck, Pomfrets, Croakers",
+    "chlorophyll_a": 3.08,
+    "sst_celsius": 29,
+    "depth_contour_m": 58,
+    "recommended_gear": "Trawl Net",
+    "distance_km": 35.9,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 35.9 km (19.4 NM) W of Porbandar Fishing Harbor. Depth: 58 m. Prominent thermal front (SST: 29.0°C, Chl-a: 3.08 mg/m³). Recommended target: Bombay Duck, Pomfrets, Croakers. Ideal gear: Trawl Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-GUJ-0003",
+    "harbor_id": 3,
+    "state": "Gujarat",
+    "latitude": 22.0473,
+    "longitude": 68.8815,
+    "target_species": "Ribbonfish, Croakers, Pomfrets",
+    "chlorophyll_a": 1.71,
+    "sst_celsius": 27.5,
+    "depth_contour_m": 85,
+    "recommended_gear": "Dol Net",
+    "distance_km": 50.5,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 50.5 km (27.3 NM) SSW of Okha Port Landing Center. Depth: 85 m. Prominent thermal front (SST: 27.5°C, Chl-a: 1.71 mg/m³). Recommended target: Ribbonfish, Croakers, Pomfrets. Ideal gear: Dol Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-MAH-0010",
+    "harbor_id": 6,
+    "state": "Maharashtra",
+    "latitude": 18.9056,
+    "longitude": 72.2007,
+    "target_species": "Non-penaeid Prawns, Catfish, Silver Pomfret",
+    "chlorophyll_a": 2.68,
+    "sst_celsius": 29.1,
+    "depth_contour_m": 76,
+    "recommended_gear": "Gill Net",
+    "distance_km": 66.3,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 66.3 km (35.8 NM) W of Sassoon Dock Harbor. Depth: 76 m. Prominent thermal front (SST: 29.1°C, Chl-a: 2.68 mg/m³). Recommended target: Non-penaeid Prawns, Catfish, Silver Pomfret. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-MAH-0011",
+    "harbor_id": 7,
+    "state": "Maharashtra",
+    "latitude": 18.7707,
+    "longitude": 72.6513,
+    "target_species": "Catfish, Indian Mackerel, Silver Pomfret",
+    "chlorophyll_a": 4.03,
+    "sst_celsius": 28.5,
+    "depth_contour_m": 52,
+    "recommended_gear": "Purse Seine",
+    "distance_km": 44.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 44.2 km (23.9 NM) SSW of Versova Fish Landing Center. Depth: 52 m. Prominent thermal front (SST: 28.5°C, Chl-a: 4.03 mg/m³). Recommended target: Catfish, Indian Mackerel, Silver Pomfret. Ideal gear: Purse Seine.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-MAH-0012",
+    "harbor_id": 7,
+    "state": "Maharashtra",
+    "latitude": 18.6635,
+    "longitude": 72.6046,
+    "target_species": "Catfish, Non-penaeid Prawns, Seer Fish",
+    "chlorophyll_a": 2.47,
+    "sst_celsius": 27.5,
+    "depth_contour_m": 56,
+    "recommended_gear": "Gill Net",
+    "distance_km": 57.1,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 57.1 km (30.8 NM) SSW of Versova Fish Landing Center. Depth: 56 m. Prominent thermal front (SST: 27.5°C, Chl-a: 2.47 mg/m³). Recommended target: Catfish, Non-penaeid Prawns, Seer Fish. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-GOA-0017",
+    "harbor_id": 11,
+    "state": "Goa",
+    "latitude": 15.1768,
+    "longitude": 73.2175,
+    "target_species": "Ribbonfish, Indian Mackerel, Seer Fish",
+    "chlorophyll_a": 2.07,
+    "sst_celsius": 27.7,
+    "depth_contour_m": 82,
+    "recommended_gear": "Purse Seine",
+    "distance_km": 78.4,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 78.4 km (42.3 NM) W of Cutbon Fishing Harbor. Depth: 82 m. Prominent thermal front (SST: 27.7°C, Chl-a: 2.07 mg/m³). Recommended target: Ribbonfish, Indian Mackerel, Seer Fish. Ideal gear: Purse Seine.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-GOA-0018",
+    "harbor_id": 11,
+    "state": "Goa",
+    "latitude": 14.7063,
+    "longitude": 73.4608,
+    "target_species": "Tuna, Ribbonfish, Oil Sardine",
+    "chlorophyll_a": 2.13,
+    "sst_celsius": 27.9,
+    "depth_contour_m": 69,
+    "recommended_gear": "Purse Seine",
+    "distance_km": 74.1,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 74.1 km (40.0 NM) SW of Cutbon Fishing Harbor. Depth: 69 m. Prominent thermal front (SST: 27.9°C, Chl-a: 2.13 mg/m³). Recommended target: Tuna, Ribbonfish, Oil Sardine. Ideal gear: Purse Seine.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-GOA-0019",
+    "harbor_id": 11,
+    "state": "Goa",
+    "latitude": 14.6674,
+    "longitude": 73.4208,
+    "target_species": "Oil Sardine, Ribbonfish, Seer Fish",
+    "chlorophyll_a": 3.59,
+    "sst_celsius": 27.2,
+    "depth_contour_m": 73,
+    "recommended_gear": "Ring Seine",
+    "distance_km": 80.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 80.2 km (43.3 NM) SW of Cutbon Fishing Harbor. Depth: 73 m. Prominent thermal front (SST: 27.2°C, Chl-a: 3.59 mg/m³). Recommended target: Oil Sardine, Ribbonfish, Seer Fish. Ideal gear: Ring Seine.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-KER-0023",
+    "harbor_id": 19,
+    "state": "Kerala",
+    "latitude": 10.0839,
+    "longitude": 75.9586,
+    "target_species": "Skipjack Tuna, Indian Oil Sardine, Anchovies",
+    "chlorophyll_a": 2.97,
+    "sst_celsius": 27.8,
+    "depth_contour_m": 66,
+    "recommended_gear": "Hook and Line",
+    "distance_km": 33.7,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 33.7 km (18.2 NM) WNW of Cochin Fishing Harbor (Thoppumpady). Depth: 66 m. Prominent thermal front (SST: 27.8°C, Chl-a: 2.97 mg/m³). Recommended target: Skipjack Tuna, Indian Oil Sardine, Anchovies. Ideal gear: Hook and Line.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-KER-0024",
+    "harbor_id": 19,
+    "state": "Kerala",
+    "latitude": 10.5709,
+    "longitude": 75.6291,
+    "target_species": "Indian Mackerel, Skipjack Tuna, Anchovies",
+    "chlorophyll_a": 1.44,
+    "sst_celsius": 27.3,
+    "depth_contour_m": 117,
+    "recommended_gear": "Gill Net",
+    "distance_km": 94.9,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 94.9 km (51.2 NM) NW of Cochin Fishing Harbor (Thoppumpady). Depth: 117 m. Prominent thermal front (SST: 27.3°C, Chl-a: 1.44 mg/m³). Recommended target: Indian Mackerel, Skipjack Tuna, Anchovies. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-KER-0025",
+    "harbor_id": 20,
+    "state": "Kerala",
+    "latitude": 10.6378,
+    "longitude": 75.7058,
+    "target_species": "Skipjack Tuna, Indian Oil Sardine, Anchovies",
+    "chlorophyll_a": 3.94,
+    "sst_celsius": 29.3,
+    "depth_contour_m": 69,
+    "recommended_gear": "Gill Net",
+    "distance_km": 72.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 72.2 km (39.0 NM) NW of Munambam Harbor. Depth: 69 m. Prominent thermal front (SST: 29.3°C, Chl-a: 3.94 mg/m³). Recommended target: Skipjack Tuna, Indian Oil Sardine, Anchovies. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-SOU-0034",
+    "harbor_id": 25,
+    "state": "Tamil Nadu",
+    "latitude": 8.6903,
+    "longitude": 78.3379,
+    "target_species": "Seer Fish, Barracuda, Skipjack Tuna",
+    "chlorophyll_a": 2.47,
+    "sst_celsius": 27,
+    "depth_contour_m": 48,
+    "recommended_gear": "Long Line",
+    "distance_km": 21.4,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 21.4 km (11.6 NM) ESE of Tuticorin Fishing Harbor. Depth: 48 m. Prominent thermal front (SST: 27.0°C, Chl-a: 2.47 mg/m³). Recommended target: Seer Fish, Barracuda, Skipjack Tuna. Ideal gear: Long Line.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-SOU-0035",
+    "harbor_id": 25,
+    "state": "Tamil Nadu",
+    "latitude": 8.4955,
+    "longitude": 78.4293,
+    "target_species": "Barracuda, Crabs, Seer Fish",
+    "chlorophyll_a": 1.61,
+    "sst_celsius": 29.5,
+    "depth_contour_m": 54,
+    "recommended_gear": "Gill Net",
+    "distance_km": 42.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 42.2 km (22.8 NM) SE of Tuticorin Fishing Harbor. Depth: 54 m. Prominent thermal front (SST: 29.5°C, Chl-a: 1.61 mg/m³). Recommended target: Barracuda, Crabs, Seer Fish. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-SOU-0036",
+    "harbor_id": 26,
+    "state": "Tamil Nadu",
+    "latitude": 9.7278,
+    "longitude": 79.7595,
+    "target_species": "Squid, Skipjack Tuna, Seer Fish",
+    "chlorophyll_a": 2.76,
+    "sst_celsius": 29.4,
+    "depth_contour_m": 51,
+    "recommended_gear": "Long Line",
+    "distance_km": 69.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 69.2 km (37.4 NM) NE of Rameswaram Fishing Jetty. Depth: 51 m. Prominent thermal front (SST: 29.4°C, Chl-a: 2.76 mg/m³). Recommended target: Squid, Skipjack Tuna, Seer Fish. Ideal gear: Long Line.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-SOU-0053",
+    "harbor_id": 34,
+    "state": "Andhra Pradesh",
+    "latitude": 14.1864,
+    "longitude": 80.2981,
+    "target_species": "Catfish, Ribbonfish, Penaeid Prawns",
+    "chlorophyll_a": 3.44,
+    "sst_celsius": 27.6,
+    "depth_contour_m": 40,
+    "recommended_gear": "Shore Seine",
+    "distance_km": 20.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 20.2 km (10.9 NM) ESE of Krishnapatnam Landing Center. Depth: 40 m. Prominent thermal front (SST: 27.6°C, Chl-a: 3.44 mg/m³). Recommended target: Catfish, Ribbonfish, Penaeid Prawns. Ideal gear: Shore Seine.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-SOU-0054",
+    "harbor_id": 34,
+    "state": "Andhra Pradesh",
+    "latitude": 14.2559,
+    "longitude": 80.3533,
+    "target_species": "Pomfrets, Penaeid Prawns, Catfish",
+    "chlorophyll_a": 3.04,
+    "sst_celsius": 28.7,
+    "depth_contour_m": 45,
+    "recommended_gear": "Gill Net",
+    "distance_km": 24.6,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 24.6 km (13.3 NM) E of Krishnapatnam Landing Center. Depth: 45 m. Prominent thermal front (SST: 28.7°C, Chl-a: 3.04 mg/m³). Recommended target: Pomfrets, Penaeid Prawns, Catfish. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-SOU-0055",
+    "harbor_id": 34,
+    "state": "Andhra Pradesh",
+    "latitude": 14.2556,
+    "longitude": 80.5806,
+    "target_species": "Pomfrets, Catfish, Ribbonfish",
+    "chlorophyll_a": 2.22,
+    "sst_celsius": 28.1,
+    "depth_contour_m": 52,
+    "recommended_gear": "Gill Net",
+    "distance_km": 49.1,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 49.1 km (26.5 NM) E of Krishnapatnam Landing Center. Depth: 52 m. Prominent thermal front (SST: 28.1°C, Chl-a: 2.22 mg/m³). Recommended target: Pomfrets, Catfish, Ribbonfish. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-ODI-0070",
+    "harbor_id": 41,
+    "state": "Odisha",
+    "latitude": 19.8838,
+    "longitude": 86.8023,
+    "target_species": "Hilsa, Tiger Prawns, Pomfrets",
+    "chlorophyll_a": 3.93,
+    "sst_celsius": 27.7,
+    "depth_contour_m": 58,
+    "recommended_gear": "Drift Net",
+    "distance_km": 52,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 52.0 km (28.1 NM) SSE of Paradip Fishing Harbor. Depth: 58 m. Prominent thermal front (SST: 27.7°C, Chl-a: 3.93 mg/m³). Recommended target: Hilsa, Tiger Prawns, Pomfrets. Ideal gear: Drift Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-ODI-0071",
+    "harbor_id": 41,
+    "state": "Odisha",
+    "latitude": 20.3155,
+    "longitude": 87.0138,
+    "target_species": "Hilsa, Pomfrets, Croakers",
+    "chlorophyll_a": 4.17,
+    "sst_celsius": 28.9,
+    "depth_contour_m": 51,
+    "recommended_gear": "Drift Net",
+    "distance_km": 41.9,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 41.9 km (22.6 NM) E of Paradip Fishing Harbor. Depth: 51 m. Prominent thermal front (SST: 28.9°C, Chl-a: 4.17 mg/m³). Recommended target: Hilsa, Pomfrets, Croakers. Ideal gear: Drift Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-ODI-0072",
+    "harbor_id": 41,
+    "state": "Odisha",
+    "latitude": 20.1184,
+    "longitude": 87.1181,
+    "target_species": "Pomfrets, Croakers, Tiger Prawns",
+    "chlorophyll_a": 2.22,
+    "sst_celsius": 28.5,
+    "depth_contour_m": 69,
+    "recommended_gear": "Drift Net",
+    "distance_km": 57.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 57.2 km (30.9 NM) ESE of Paradip Fishing Harbor. Depth: 69 m. Prominent thermal front (SST: 28.5°C, Chl-a: 2.22 mg/m³). Recommended target: Pomfrets, Croakers, Tiger Prawns. Ideal gear: Drift Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-LAK-0079",
+    "harbor_id": 49,
+    "state": "Lakshadweep",
+    "latitude": 10.7272,
+    "longitude": 72.2444,
+    "target_species": "Yellowfin Tuna, Skipjack Tuna (Katsuwonus pelamis), Bigeye Tuna",
+    "chlorophyll_a": 3.01,
+    "sst_celsius": 27.9,
+    "depth_contour_m": 147,
+    "recommended_gear": "Troll Line",
+    "distance_km": 46.9,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 46.9 km (25.3 NM) WNW of Kavaratti Jetty. Depth: 147 m. Prominent thermal front (SST: 27.9°C, Chl-a: 3.01 mg/m³). Recommended target: Yellowfin Tuna, Skipjack Tuna (Katsuwonus pelamis), Bigeye Tuna. Ideal gear: Troll Line.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-LAK-0080",
+    "harbor_id": 49,
+    "state": "Lakshadweep",
+    "latitude": 11.0146,
+    "longitude": 72.1836,
+    "target_species": "Bigeye Tuna, Skipjack Tuna (Katsuwonus pelamis), Yellowfin Tuna",
+    "chlorophyll_a": 2.18,
+    "sst_celsius": 30.2,
+    "depth_contour_m": 208,
+    "recommended_gear": "Troll Line",
+    "distance_km": 70.6,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 70.6 km (38.1 NM) NW of Kavaratti Jetty. Depth: 208 m. Prominent thermal front (SST: 30.2°C, Chl-a: 2.18 mg/m³). Recommended target: Bigeye Tuna, Skipjack Tuna (Katsuwonus pelamis), Yellowfin Tuna. Ideal gear: Troll Line.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-LAK-0081",
+    "harbor_id": 50,
+    "state": "Lakshadweep",
+    "latitude": 10.6737,
+    "longitude": 71.7533,
+    "target_species": "Mahi Mahi (Dolphin Fish), Bigeye Tuna, Skipjack Tuna (Katsuwonus pelamis)",
+    "chlorophyll_a": 4.06,
+    "sst_celsius": 30.5,
+    "depth_contour_m": 197,
+    "recommended_gear": "Troll Line",
+    "distance_km": 52,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 52.0 km (28.1 NM) WSW of Agatti Fish Landing Center. Depth: 197 m. Prominent thermal front (SST: 30.5°C, Chl-a: 4.06 mg/m³). Recommended target: Mahi Mahi (Dolphin Fish), Bigeye Tuna, Skipjack Tuna (Katsuwonus pelamis). Ideal gear: Troll Line.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-AND-0084",
+    "harbor_id": 52,
+    "state": "Andaman & Nicobar",
+    "latitude": 11.9625,
+    "longitude": 93.47,
+    "target_species": "Yellowfin Tuna, Billfish / Marlin, Groupers",
+    "chlorophyll_a": 2.62,
+    "sst_celsius": 28.1,
+    "depth_contour_m": 165,
+    "recommended_gear": "Gill Net",
+    "distance_km": 87.6,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 87.6 km (47.3 NM) ENE of Junglighat Fishing Jetty (Port Blair). Depth: 165 m. Prominent thermal front (SST: 28.1°C, Chl-a: 2.62 mg/m³). Recommended target: Yellowfin Tuna, Billfish / Marlin, Groupers. Ideal gear: Gill Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-AND-0085",
+    "harbor_id": 52,
+    "state": "Andaman & Nicobar",
+    "latitude": 11.7703,
+    "longitude": 92.4587,
+    "target_species": "Skipjack Tuna, Billfish / Marlin, Snappers",
+    "chlorophyll_a": 1.82,
+    "sst_celsius": 29.8,
+    "depth_contour_m": 88,
+    "recommended_gear": "Longline",
+    "distance_km": 31.5,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 31.5 km (17.0 NM) WNW of Junglighat Fishing Jetty (Port Blair). Depth: 88 m. Prominent thermal front (SST: 29.8°C, Chl-a: 1.82 mg/m³). Recommended target: Skipjack Tuna, Billfish / Marlin, Snappers. Ideal gear: Longline.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260727-AND-0086",
+    "harbor_id": 53,
+    "state": "Andaman & Nicobar",
+    "latitude": 13.4528,
+    "longitude": 93.4452,
+    "target_species": "Groupers, Billfish / Marlin, Yellowfin Tuna",
+    "chlorophyll_a": 3.68,
+    "sst_celsius": 27.5,
+    "depth_contour_m": 105,
+    "recommended_gear": "Longline",
+    "distance_km": 54.1,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 54.1 km (29.2 NM) ENE of Diglipur Fishery Jetty. Depth: 105 m. Prominent thermal front (SST: 27.5°C, Chl-a: 3.68 mg/m³). Recommended target: Groupers, Billfish / Marlin, Yellowfin Tuna. Ideal gear: Longline.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260728-KAR-0116",
+    "harbor_id": 14,
+    "state": "Karnataka",
+    "latitude": 13.2315,
+    "longitude": 74.4532,
+    "target_species": "Oil Sardine, Cephalopods (Squid/Cuttlefish), Anchovies",
+    "chlorophyll_a": 1.9,
+    "sst_celsius": 28.3,
+    "depth_contour_m": 72,
+    "recommended_gear": "Trawl Net",
+    "distance_km": 58.3,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 58.3 km (31.5 NM) NW of Mangalore Old Port (Bunder). Depth: 72 m. Prominent thermal front (SST: 28.3°C, Chl-a: 1.90 mg/m³). Recommended target: Oil Sardine, Cephalopods (Squid/Cuttlefish), Anchovies. Ideal gear: Trawl Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260728-KAR-0117",
+    "harbor_id": 14,
+    "state": "Karnataka",
+    "latitude": 12.6506,
+    "longitude": 74.3146,
+    "target_species": "Cephalopods (Squid/Cuttlefish), Oil Sardine, Indian Mackerel",
+    "chlorophyll_a": 2.91,
+    "sst_celsius": 28,
+    "depth_contour_m": 81,
+    "recommended_gear": "Trawl Net",
+    "distance_km": 61,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 61.0 km (32.9 NM) WSW of Mangalore Old Port (Bunder). Depth: 81 m. Prominent thermal front (SST: 28.0°C, Chl-a: 2.91 mg/m³). Recommended target: Cephalopods (Squid/Cuttlefish), Oil Sardine, Indian Mackerel. Ideal gear: Trawl Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260728-KAR-0118",
+    "harbor_id": 14,
+    "state": "Karnataka",
+    "latitude": 13.1782,
+    "longitude": 74.0447,
+    "target_species": "Anchovies, Cephalopods (Squid/Cuttlefish), Indian Mackerel",
+    "chlorophyll_a": 0.77,
+    "sst_celsius": 27.5,
+    "depth_contour_m": 105,
+    "recommended_gear": "Purse Seine",
+    "distance_km": 92.5,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 92.5 km (49.9 NM) WNW of Mangalore Old Port (Bunder). Depth: 105 m. Prominent thermal front (SST: 27.5°C, Chl-a: 0.77 mg/m³). Recommended target: Anchovies, Cephalopods (Squid/Cuttlefish), Indian Mackerel. Ideal gear: Purse Seine.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260728-WES-0168",
+    "harbor_id": 45,
+    "state": "West Bengal",
+    "latitude": 21.5149,
+    "longitude": 87.8409,
+    "target_species": "Tenualosa ilisha (Hilsa), Bombay Duck, Prawns",
+    "chlorophyll_a": 2.88,
+    "sst_celsius": 28.2,
+    "depth_contour_m": 33,
+    "recommended_gear": "Bag Net",
+    "distance_km": 32.8,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 32.8 km (17.7 NM) ESE of Digha (Sankarpur) Fishing Harbor. Depth: 33 m. Prominent thermal front (SST: 28.2°C, Chl-a: 2.88 mg/m³). Recommended target: Tenualosa ilisha (Hilsa), Bombay Duck, Prawns. Ideal gear: Bag Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260728-WES-0169",
+    "harbor_id": 45,
+    "state": "West Bengal",
+    "latitude": 20.9938,
+    "longitude": 87.8293,
+    "target_species": "Bombay Duck, Tenualosa ilisha (Hilsa), Ribbonfish",
+    "chlorophyll_a": 1.97,
+    "sst_celsius": 29.1,
+    "depth_contour_m": 56,
+    "recommended_gear": "Bag Net",
+    "distance_km": 76.3,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 76.3 km (41.2 NM) SSE of Digha (Sankarpur) Fishing Harbor. Depth: 56 m. Prominent thermal front (SST: 29.1°C, Chl-a: 1.97 mg/m³). Recommended target: Bombay Duck, Tenualosa ilisha (Hilsa), Ribbonfish. Ideal gear: Bag Net.",
+    "pfz_score": 85
+  },
+  {
+    "advisory_id": "INCOIS-PFZ-20260728-WES-0170",
+    "harbor_id": 45,
+    "state": "West Bengal",
+    "latitude": 21.7386,
+    "longitude": 87.836,
+    "target_species": "Ribbonfish, Bombay Duck, Prawns",
+    "chlorophyll_a": 0.48,
+    "sst_celsius": 28.7,
+    "depth_contour_m": 34,
+    "recommended_gear": "Drift Net",
+    "distance_km": 32.2,
+    "bulletin_text_english": "INCOIS PFZ Advisory: Favourable fishing zone located 32.2 km (17.4 NM) ENE of Digha (Sankarpur) Fishing Harbor. Depth: 34 m. Prominent thermal front (SST: 28.7°C, Chl-a: 0.48 mg/m³). Recommended target: Ribbonfish, Bombay Duck, Prawns. Ideal gear: Drift Net.",
+    "pfz_score": 85
+  }
+];
+
+export const FALLBACK_CYCLONE_TRACKS: any[] = [
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 12.5,
+    "longitude": 66,
+    "intensity": "Deep Depression (DD)",
+    "max_sustained_wind_kmph": 61.5,
+    "timestamp_utc": "2023-05-15 00:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 12.7832,
+    "longitude": 66.0885,
+    "intensity": "Cyclonic Storm (CS)",
+    "max_sustained_wind_kmph": 64.4,
+    "timestamp_utc": "2023-05-15 06:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 13.0663,
+    "longitude": 66.1769,
+    "intensity": "Cyclonic Storm (CS)",
+    "max_sustained_wind_kmph": 68.3,
+    "timestamp_utc": "2023-05-15 12:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 13.3492,
+    "longitude": 66.265,
+    "intensity": "Cyclonic Storm (CS)",
+    "max_sustained_wind_kmph": 70.2,
+    "timestamp_utc": "2023-05-15 18:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 13.6318,
+    "longitude": 66.3527,
+    "intensity": "Cyclonic Storm (CS)",
+    "max_sustained_wind_kmph": 74.8,
+    "timestamp_utc": "2023-05-16 00:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 13.914,
+    "longitude": 66.4398,
+    "intensity": "Cyclonic Storm (CS)",
+    "max_sustained_wind_kmph": 81.9,
+    "timestamp_utc": "2023-05-16 06:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 14.1958,
+    "longitude": 66.5262,
+    "intensity": "Cyclonic Storm (CS)",
+    "max_sustained_wind_kmph": 81.7,
+    "timestamp_utc": "2023-05-16 12:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 14.477,
+    "longitude": 66.6117,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 90.7,
+    "timestamp_utc": "2023-05-16 18:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 14.7576,
+    "longitude": 66.6963,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 96.1,
+    "timestamp_utc": "2023-05-17 00:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 15.0374,
+    "longitude": 66.7798,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 100.6,
+    "timestamp_utc": "2023-05-17 06:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 15.3164,
+    "longitude": 66.8621,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 105,
+    "timestamp_utc": "2023-05-17 12:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 15.5946,
+    "longitude": 66.9431,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 104.5,
+    "timestamp_utc": "2023-05-17 18:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 15.8718,
+    "longitude": 67.0227,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 109.8,
+    "timestamp_utc": "2023-05-18 00:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 16.148,
+    "longitude": 67.1008,
+    "intensity": "Severe Cyclonic Storm (SCS)",
+    "max_sustained_wind_kmph": 116.3,
+    "timestamp_utc": "2023-05-18 06:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 16.4232,
+    "longitude": 67.1773,
+    "intensity": "Very Severe Cyclonic Storm (VSCS)",
+    "max_sustained_wind_kmph": 123.2,
+    "timestamp_utc": "2023-05-18 12:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 16.6973,
+    "longitude": 67.2522,
+    "intensity": "Very Severe Cyclonic Storm (VSCS)",
+    "max_sustained_wind_kmph": 128.9,
+    "timestamp_utc": "2023-05-18 18:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 16.9702,
+    "longitude": 67.3253,
+    "intensity": "Very Severe Cyclonic Storm (VSCS)",
+    "max_sustained_wind_kmph": 127.2,
+    "timestamp_utc": "2023-05-19 00:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 17.242,
+    "longitude": 67.3967,
+    "intensity": "Very Severe Cyclonic Storm (VSCS)",
+    "max_sustained_wind_kmph": 135.6,
+    "timestamp_utc": "2023-05-19 06:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 17.5125,
+    "longitude": 67.4663,
+    "intensity": "Very Severe Cyclonic Storm (VSCS)",
+    "max_sustained_wind_kmph": 141.1,
+    "timestamp_utc": "2023-05-19 12:00:00"
+  },
+  {
+    "cyclone_id": "2023157N13066",
+    "cyclone_name": "BIPARJOY",
+    "latitude": 17.7819,
+    "longitude": 67.5341,
+    "intensity": "Very Severe Cyclonic Storm (VSCS)",
+    "max_sustained_wind_kmph": 145.4,
+    "timestamp_utc": "2023-05-19 18:00:00"
+  }
+];

@@ -140,14 +140,16 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
   if (mapIntent.layer === 'RESTRICTED_ZONES') {
     const count = zoneResult?.count ?? (zoneResult?.restrictedZones as unknown[])?.length ?? 0;
     const scope = mapIntent.scopeName || stateName;
+    const zoneList = (zoneResult?.restrictedZones as any[]) || [];
+    const zoneNames = zoneList.map((z: any) => z.zone_name).filter(Boolean).join(', ');
     if (!count) return `No matching restricted zones were found for ${scope}. The map was left unchanged.`;
-    return `I found ${count} restricted zone${count === 1 ? '' : 's'} relevant to ${scope} and fitted the map to those matching areas.`;
+    return `I found ${count} restricted zone${count === 1 ? '' : 's'} in ${scope}${zoneNames ? ` (${zoneNames})` : ''} and fitted the map view to highlight those zones.`;
   }
 
   if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'NATIONAL') {
     const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
     if (!count) return 'No PFZ advisories are currently available. The map was left unchanged.';
-    return `I've displayed the available PFZs across India (${count} points) and fitted the map to the national PFZ view.`;
+    return `I have displayed available PFZ advisories across India (${count} fishing grounds) and fitted the map to the national advisory overview.`;
   }
 
   if (mapIntent.layer === 'PFZ') {
@@ -265,7 +267,7 @@ MAP LANGUAGE RULES:
 - Only claim a map update if MapIntent.action is not PRESERVE. Current MapIntent: ${JSON.stringify(mapIntent)}
 - Map moved: ${movedMap}
 - If PRESERVE, do not say you centered, highlighted, or fitted the map.
-- For restricted-zone queries, describe matching zones — do NOT say you selected a harbor and centered the radar there.
+- For restricted-zone queries, describe matching zones — do NOT mention reference harbors, do NOT mention sea conditions or fishing grounds, and do NOT say you centered on Sultanpur or Veraval.
 - For national PFZ, say you displayed available PFZs across India.
 - Never call the EEZ "territorial waters". Territorial sea is 12 NM; EEZ is the 200 NM exclusive economic zone.
 - Inland locations have no maritime harbor. Never imply they were resolved to Veraval.
@@ -278,7 +280,18 @@ Location Resolution: ${JSON.stringify(locRes || {})}
 Telemetry & Agent Findings: ${JSON.stringify(compact)}`;
 
     const promise = model.invoke(prompt)
-      .then((msg: any) => typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content));
+      .then((msg: any) => {
+        const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+        // Safety guard: if restricted zones query, ensure no hallucinated harbor reference or sea conditions leak
+        if (mapIntent.layer === 'RESTRICTED_ZONES' && (/sultanpur|veraval|reference point|maritime reference/i.test(text) || /fishing grounds/i.test(text))) {
+          return fb;
+        }
+        // Safety guard: if national PFZ query, ensure no single harbor claim leaks
+        if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'NATIONAL' && (/veraval|sultanpur|centered the radar/i.test(text))) {
+          return fb;
+        }
+        return text;
+      });
     return await withTimeout(promise, 10000, fb);
   } catch (err: any) {
     console.warn('Gemini synthesize error:', err?.message || err);

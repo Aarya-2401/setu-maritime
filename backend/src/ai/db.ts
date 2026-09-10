@@ -1,4 +1,5 @@
 export const { pool } = require('../../config/db');
+import { FALLBACK_HARBORS } from './fallbackData';
 
 export const REGIONAL_CITY_MAP: Record<string, number> = {
   kolkata: 47,
@@ -253,17 +254,22 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
   if (location?.harborId) {
     try {
       const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [location.harborId]);
-      if (rows.length) {
+      if (rows && rows.length) {
         return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
       }
     } catch (e) {
-      return {
-        status: 'SUPPORTED',
-        locationType: 'HARBOR',
-        locationName: `Harbor #${location.harborId}`,
-        harbor: { harbor_id: location.harborId, landing_center_name: `Harbor #${location.harborId}` }
-      };
+      console.warn('[ORCA] Direct harborId lookup DB failed; using fallback', e?.message || e);
     }
+    const fb = FALLBACK_HARBORS.find((h) => h.harbor_id === location.harborId);
+    if (fb) {
+      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: fb.landing_center_name, harbor: fb };
+    }
+    return {
+      status: 'SUPPORTED',
+      locationType: 'HARBOR',
+      locationName: `Harbor #${location.harborId}`,
+      harbor: { harbor_id: location.harborId, landing_center_name: `Harbor #${location.harborId}` }
+    };
   }
 
   // 2. Name-based lookup
@@ -289,13 +295,16 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
           [`%${matchedState.stateName}%`]
         );
         stateRows = rows || [];
-        refHarbor = stateRows.find((r: any) => r.harbor_id === matchedState.primaryHarborId) || stateRows[0] || null;
-        otherHarbors = stateRows
-          .filter((r: any) => r.harbor_id !== refHarbor?.harbor_id)
-          .map((r: any) => r.landing_center_name.split(' (')[0]);
       } catch (e) {
-        // Offline or connection-refused fallback
+        console.warn('[ORCA] State harbors query failed; using fallback', e?.message || e);
       }
+      if (!stateRows.length) {
+        stateRows = FALLBACK_HARBORS.filter((h) => h.state.toLowerCase().includes(matchedState.stateName.toLowerCase()));
+      }
+      refHarbor = stateRows.find((r: any) => r.harbor_id === matchedState.primaryHarborId) || stateRows[0] || null;
+      otherHarbors = stateRows
+        .filter((r: any) => r.harbor_id !== refHarbor?.harbor_id)
+        .map((r: any) => r.landing_center_name.split(' (')[0]);
 
       if (!refHarbor) {
         const PRIMARY_HARBOR_NAMES: Record<number, string> = {
@@ -345,17 +354,22 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
     if (mappedId) {
       try {
         const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [mappedId]);
-        if (mRows.length) {
+        if (mRows && mRows.length) {
           return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
         }
       } catch (e) {
-        return {
-          status: 'SUPPORTED',
-          locationType: 'HARBOR',
-          locationName: raw,
-          harbor: { harbor_id: mappedId, landing_center_name: raw }
-        };
+        console.warn('[ORCA] Mapped harborId query failed; using fallback', e?.message || e);
       }
+      const fb = FALLBACK_HARBORS.find((h) => h.harbor_id === mappedId);
+      if (fb) {
+        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: fb.landing_center_name, harbor: fb };
+      }
+      return {
+        status: 'SUPPORTED',
+        locationType: 'HARBOR',
+        locationName: raw,
+        harbor: { harbor_id: mappedId, landing_center_name: raw }
+      };
     }
 
     // Fast-path inland check with fuzzy tolerance (check before database query to avoid substring collisions)
@@ -387,20 +401,32 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
     }
 
     // Database lookup: Check landing center name or district using whole word boundaries
-    const [rows]: any = await pool.query(
-      `SELECT * FROM dim_fishing_harbors 
-       WHERE landing_center_name = ?
-          OR landing_center_name LIKE CONCAT(?, ' %')
-          OR landing_center_name LIKE CONCAT('% ', ?, ' %')
-          OR landing_center_name LIKE CONCAT('% ', ?)
-          OR district = ?
-          OR district LIKE CONCAT(?, ' %')
-          OR district LIKE CONCAT('% ', ?)
-       ORDER BY landing_center_name ASC LIMIT 1`,
-      [location.name, location.name, location.name, location.name, location.name, location.name, location.name]
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT * FROM dim_fishing_harbors 
+         WHERE landing_center_name = ?
+            OR landing_center_name LIKE CONCAT(?, ' %')
+            OR landing_center_name LIKE CONCAT('% ', ?, ' %')
+            OR landing_center_name LIKE CONCAT('% ', ?)
+            OR district = ?
+            OR district LIKE CONCAT(?, ' %')
+            OR district LIKE CONCAT('% ', ?)
+         ORDER BY landing_center_name ASC LIMIT 1`,
+        [location.name, location.name, location.name, location.name, location.name, location.name, location.name]
+      );
+      if (rows && rows.length) {
+        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
+      }
+    } catch (e) {
+      console.warn('[ORCA] Database lookup for harbor name failed; using fallback', e?.message || e);
+    }
+    const foundFallback = FALLBACK_HARBORS.find((h) =>
+      h.landing_center_name.toLowerCase() === raw ||
+      h.landing_center_name.toLowerCase().includes(raw) ||
+      h.district.toLowerCase() === raw
     );
-    if (rows.length) {
-      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
+    if (foundFallback) {
+      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: foundFallback.landing_center_name, harbor: foundFallback };
     }
 
     // Fuzzy match against regional harbor/city aliases
@@ -416,9 +442,17 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
     }
     if (closestKey) {
       const fuzzyId = REGIONAL_CITY_MAP[closestKey];
-      const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [fuzzyId]);
-      if (mRows.length) {
-        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+      try {
+        const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [fuzzyId]);
+        if (mRows && mRows.length) {
+          return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+        }
+      } catch (e) {
+        console.warn('[ORCA] Fuzzy harborId query failed; using fallback', e?.message || e);
+      }
+      const fb = FALLBACK_HARBORS.find((h) => h.harbor_id === fuzzyId);
+      if (fb) {
+        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: fb.landing_center_name, harbor: fb };
       }
     }
 
@@ -434,14 +468,30 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
 
   // 3. Coordinate distance lookup
   if (location?.latitude != null && location?.longitude != null) {
-    const [rows]: any = await pool.query(
-      `SELECT *, (111.32 * SQRT(POW(latitude-?,2) + POW((longitude-?)*COS(RADIANS(?)),2))) AS distance_km 
-       FROM dim_fishing_harbors 
-       ORDER BY distance_km LIMIT 1`,
-      [location.latitude, location.longitude, location.latitude]
-    );
-    if (rows.length && rows[0].distance_km < 150) {
-      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
+    try {
+      const [rows]: any = await pool.query(
+        `SELECT *, (111.32 * SQRT(POW(latitude-?,2) + POW((longitude-?)*COS(RADIANS(?)),2))) AS distance_km 
+         FROM dim_fishing_harbors 
+         ORDER BY distance_km LIMIT 1`,
+        [location.latitude, location.longitude, location.latitude]
+      );
+      if (rows && rows.length && rows[0].distance_km < 150) {
+        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
+      }
+    } catch (e) {
+      console.warn('[ORCA] Coordinate distance query failed; using fallback', e?.message || e);
+    }
+    let nearest: any = null;
+    let minD = 150;
+    for (const h of FALLBACK_HARBORS) {
+      const d = 111.32 * Math.sqrt((h.latitude - location.latitude) ** 2 + ((h.longitude - location.longitude) * Math.cos(location.latitude * Math.PI / 180)) ** 2);
+      if (d < minD) {
+        minD = d;
+        nearest = h;
+      }
+    }
+    if (nearest) {
+      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: nearest.landing_center_name, harbor: nearest };
     }
   }
 

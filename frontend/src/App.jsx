@@ -18,6 +18,7 @@ import {
   useMaritimeBoundaries
 } from './data/useOrcaAPI'
 import { KERALA_DEMO_HARBOR } from './data/keralaDemoData'
+import { FALLBACK_RESTRICTED_ZONES } from './data/mockData'
 import './App.css'
 
 export default function App() {
@@ -106,13 +107,18 @@ export default function App() {
             })
           })
 
-        // Smoothly center the map on the user's detected coordinates
-        setMapFocusTarget({
-          lat,
-          lon,
-          zoom: 10,
-          label: 'User Detected Position',
-          timestamp: Date.now()
+        // Smoothly center the map on the user's detected coordinates if not already overridden by AI/user
+        setMapFocusTarget((prev) => {
+          if (prev && prev.label !== 'Default' && prev.label !== 'User Detected Position') {
+            return prev
+          }
+          return {
+            lat,
+            lon,
+            zoom: 10,
+            label: 'User Detected Position',
+            timestamp: Date.now()
+          }
         })
       },
       (err) => {
@@ -138,15 +144,27 @@ export default function App() {
       fetchLiveWeather(userLocation.lat, userLocation.lon).then((wData) => {
         if (wData) setLiveWeatherData(wData)
       })
-      setMapFocusTarget({
-        lat: userLocation.lat,
-        lon: userLocation.lon,
-        zoom: 10,
-        label: 'User Detected Position',
-        timestamp: Date.now()
+      setMapFocusTarget((prev) => {
+        if (prev && prev.label !== 'Default' && prev.label !== 'User Detected Position') {
+          return prev
+        }
+        return {
+          lat: userLocation.lat,
+          lon: userLocation.lon,
+          zoom: 10,
+          label: 'User Detected Position',
+          timestamp: Date.now()
+        }
       })
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Disengage inland mode whenever an explicit maritime focus target is active
+  useEffect(() => {
+    if (mapFocusTarget && (mapFocusTarget.layer || mapFocusTarget.bounds || (mapFocusTarget.label && mapFocusTarget.label !== 'User Detected Position' && !mapFocusTarget.label.toLowerCase().includes('inland')))) {
+      setIsUserLocationActive(false)
+    }
+  }, [mapFocusTarget])
 
   // Find the selected harbor object from loaded harbors list (with Kerala fallback)
   const selectedHarbor = useMemo(() => {
@@ -304,19 +322,22 @@ export default function App() {
   }, [isUserLocationActive, liveWeatherData, safetyData, userLocation])
 
   const effectiveAdvisories = dynamicAdvisories || advisories
-  const effectiveZones = dynamicZones || restrictedZones
+  const effectiveZones = (dynamicZones && dynamicZones.length > 0)
+    ? dynamicZones
+    : ((restrictedZones && restrictedZones.length > 0) ? restrictedZones : FALLBACK_RESTRICTED_ZONES)
 
   // Unified single source of truth for departure decision and factor evaluation
   const globalAssessment = useMemo(() => {
     return calculateGlobalAssessment({
       harbor: selectedHarbor,
-      safetyData,
+      safetyData: effectiveSafetyData,
+      tides,
+      advisories: effectiveAdvisories,
       routes,
       restrictedZones: effectiveZones,
-      selectedRouteId,
-      tides
+      selectedRouteId
     })
-  }, [selectedHarbor, safetyData, routes, effectiveZones, selectedRouteId, tides])
+  }, [selectedHarbor, effectiveSafetyData, tides, effectiveAdvisories, routes, effectiveZones, selectedRouteId])
 
   // Dynamic active assessment: if inland user location is active, tailor assessment to inland position
   const activeAssessment = useMemo(() => {
@@ -332,10 +353,16 @@ export default function App() {
   // Mobile Viewport Render (< 768px)
   if (isMobile) {
     return (
-      <div className="app app--mobile">
-        <a href="#main-content" className="skip-link">
-          Skip to main content
-        </a>
+      <div className="app-shell app-shell--mobile">
+        <TopBar
+          harbors={harbors}
+          selectedHarborId={selectedHarborId}
+          onSelectHarbor={handleSelectHarbor}
+          onSelectUserLocation={handleSelectUserLocation}
+          isUserLocationActive={isUserLocationActive}
+          userLocationTag={userLocationTag}
+          hasLiveMarineData={hasLiveMarineData}
+        />
 
         <MobileLayout
           harbor={selectedHarbor}
@@ -343,6 +370,7 @@ export default function App() {
           onSelectHarbor={handleSelectHarbor}
           onSelectUserLocation={handleSelectUserLocation}
           onSetInlandLocation={handleSetInlandLocation}
+          onDisengageInland={() => setIsUserLocationActive(false)}
           isUserLocationActive={isUserLocationActive}
           userLocationTag={userLocationTag}
           hasLiveMarineData={hasLiveMarineData}
@@ -468,6 +496,7 @@ export default function App() {
         onSelectHarbor={handleSelectHarbor}
         onSelectUserLocation={handleSelectUserLocation}
         onSetInlandLocation={handleSetInlandLocation}
+        onDisengageInland={() => setIsUserLocationActive(false)}
         isUserLocationActive={isUserLocationActive}
         userLocationTag={userLocationTag}
         userLocation={userLocation}

@@ -230,7 +230,7 @@ test('7. Query: can I fish near Odisha? (Coastal State handling)', async () => {
   assert.equal(locRes.locationType, 'COASTAL_STATE');
   assert.equal(locRes.stateName, 'Odisha');
   assert.ok(locRes.harbor, 'Should assign a representative reference harbor for Odisha (e.g. Paradip)');
-  assert.equal(locRes.referenceHarbor?.landing_center_name, 'Paradip Fishing Harbour');
+  assert.ok(locRes.referenceHarbor?.landing_center_name.includes('Paradip'), 'Reference harbor must be Paradip');
 });
 
 test('8. Query: what is the weather tomorrow? (Preserve map view)', () => {

@@ -10,7 +10,29 @@
  * @param {Object} handlers - UI dispatcher functions
  */
 export function executeMapIntent(mapIntent, payload, handlers = {}) {
-  if (!mapIntent || !mapIntent.action) {
+  let intent = mapIntent;
+  if ((!intent || !intent.action) && payload?.mapUpdate) {
+    const mu = payload.mapUpdate;
+    if (mu.action === 'fit_layer' || mu.action === 'focus_layer') {
+      intent = {
+        action: mu.action.toUpperCase(),
+        layer: mu.layer,
+        scope: mu.scope,
+        scopeName: mu.scopeName,
+        targetIds: mu.targetIds,
+        highlight: mu.highlight,
+        bounds: mu.bounds
+      };
+    } else if (mu.action === 'recenter') {
+      intent = {
+        action: 'FOCUS_HARBOR',
+        harborId: mu.harborId,
+        location: mu.location
+      };
+    }
+  }
+
+  if (!intent || !intent.action) {
     return;
   }
 
@@ -18,14 +40,15 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     onSelectHarbor,
     onMapFocus,
     onSetInlandLocation,
+    onDisengageInland,
     onUpdateDynamicAdvisories,
     onUpdateDynamicZones
   } = handlers;
 
-  const action = mapIntent.action;
-  const layer = mapIntent.layer;
-  const scope = mapIntent.scope;
-  const targetIds = mapIntent.targetIds || [];
+  const action = intent.action;
+  const layer = intent.layer;
+  const scope = intent.scope;
+  const targetIds = intent.targetIds || [];
 
   console.log('[ORCA Executor] Executing MapIntent: ' + action + ' - Layer: ' + (layer || 'NONE') + ' - Scope: ' + (scope || 'NONE'));
 
@@ -34,15 +57,22 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     return;
   }
 
+  // Maritime operations automatically disengage inland locality view
+  if (action === 'FOCUS_HARBOR' || action === 'FIT_LAYER' || action === 'FOCUS_LAYER') {
+    if (onDisengageInland) {
+      onDisengageInland();
+    }
+  }
+
   // 2. FOCUS_HARBOR - Recenter to specified harbor
   if (action === 'FOCUS_HARBOR' || (action === 'FIT_LAYER' && layer === 'HARBORS')) {
-    const harborId = mapIntent.harborId || payload?.harborId;
+    const harborId = intent.harborId || payload?.harborId;
     if (harborId && onSelectHarbor) {
       onSelectHarbor(harborId);
     }
-    const lat = mapIntent.location?.latitude || payload?.location?.latitude;
-    const lon = mapIntent.location?.longitude || payload?.location?.longitude;
-    const name = mapIntent.location?.name || payload?.location?.name || 'Selected Harbor';
+    const lat = intent.location?.latitude || payload?.location?.latitude;
+    const lon = intent.location?.longitude || payload?.location?.longitude;
+    const name = intent.location?.name || payload?.location?.name || 'Selected Harbor';
     if (lat && lon && onMapFocus) {
       onMapFocus({
         lat: Number(lat),
@@ -57,9 +87,9 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
 
   // 3. FOCUS_LOCATION - Inland terrestrial or arbitrary coordinate target
   if (action === 'FOCUS_LOCATION') {
-    const lat = mapIntent.location?.latitude ?? payload?.location?.latitude;
-    const lon = mapIntent.location?.longitude ?? payload?.location?.longitude;
-    const name = mapIntent.location?.name || payload?.location?.name || 'Target Location';
+    const lat = intent.location?.latitude ?? payload?.location?.latitude;
+    const lon = intent.location?.longitude ?? payload?.location?.longitude;
+    const name = intent.location?.name || payload?.location?.name || 'Target Location';
 
     if (payload?.isInland || payload?.locationStatus === 'INLAND') {
       if (onSetInlandLocation && lat != null && lon != null) {
@@ -93,14 +123,14 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (payload?.mapData?.restrictedZones && onUpdateDynamicZones) {
         onUpdateDynamicZones(payload.mapData.restrictedZones);
       }
-      const label = mapIntent.scopeName
-        ? 'Restricted Zones: ' + mapIntent.scopeName
+      const label = intent.scopeName
+        ? 'Restricted Zones: ' + intent.scopeName
         : 'Marine Protected Areas and Sanctuaries';
 
       if (onMapFocus) {
         onMapFocus({
           layer: 'RESTRICTED_ZONES',
-          bounds: mapIntent.bounds,
+          bounds: intent.bounds,
           highlightedZoneIds: targetIds,
           label,
           timestamp: Date.now()
@@ -117,16 +147,16 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       }
       const label = isNational
         ? 'National PFZ View (India)'
-        : (mapIntent.scopeName ? 'PFZ Hotspots: ' + mapIntent.scopeName : 'Potential Fishing Zone');
+        : (intent.scopeName ? 'PFZ Hotspots: ' + intent.scopeName : 'Potential Fishing Zone');
 
       if (onMapFocus) {
         onMapFocus({
           layer: 'PFZ',
           scope: isNational ? 'NATIONAL' : 'NEAR_LOCATION',
-          bounds: mapIntent.bounds,
+          bounds: intent.bounds,
           highlightedPfzIds: targetIds,
-          lat: mapIntent.location?.latitude,
-          lon: mapIntent.location?.longitude,
+          lat: intent.location?.latitude,
+          lon: intent.location?.longitude,
           zoom: isNational ? 5 : 10,
           label,
           timestamp: Date.now()
@@ -140,7 +170,7 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (onMapFocus) {
         onMapFocus({
           layer: 'CYCLONES',
-          bounds: mapIntent.bounds,
+          bounds: intent.bounds,
           cyclones: payload?.mapData?.cyclones,
           label: 'Active Cyclone Track and Proximity Radar',
           timestamp: Date.now()
@@ -154,7 +184,7 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (onMapFocus) {
         onMapFocus({
           layer: 'EEZ',
-          bounds: mapIntent.bounds || [[5.5, 66.5], [23.8, 94.5]],
+          bounds: intent.bounds || [[5.5, 66.5], [23.8, 94.5]],
           label: 'Indian Exclusive Economic Zone (200 NM)',
           timestamp: Date.now()
         });
@@ -167,7 +197,7 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (onMapFocus) {
         onMapFocus({
           layer: 'IMBL',
-          bounds: mapIntent.bounds || [[8.5, 78.5], [10.5, 80.5]],
+          bounds: intent.bounds || [[8.5, 78.5], [10.5, 80.5]],
           label: 'International Maritime Boundary Line (IMBL)',
           timestamp: Date.now()
         });

@@ -140,11 +140,9 @@ export async function runOrca(query: string, context?: ConversationContext) {
       // ONLY generate mapUpdates if the MapIntent action is NOT PRESERVE
       const mapUpdates: any[] = [];
       if (normalizedIntent.action !== 'PRESERVE') {
-        const agentUpdate = results.flatMap((r: any) => r.mapUpdate ? [r.mapUpdate] : [])[0];
-        if (agentUpdate) {
-          mapUpdates.push(agentUpdate);
-        } else if (normalizedIntent.action === 'FOCUS_HARBOR' && h) {
-          mapUpdates.push({
+        let agentUpdate = results.find((r: any) => r.mapUpdate && r.mapUpdate.layer === normalizedIntent.layer)?.mapUpdate;
+        if (!agentUpdate && normalizedIntent.action === 'FOCUS_HARBOR' && h) {
+          agentUpdate = {
             action: 'recenter',
             harborId: h.harbor_id,
             location: {
@@ -153,7 +151,21 @@ export async function runOrca(query: string, context?: ConversationContext) {
               longitude: Number(h.longitude)
             },
             zoom: 11
-          });
+          };
+        } else if (!agentUpdate && normalizedIntent.layer) {
+          agentUpdate = {
+            action: normalizedIntent.action.toLowerCase(),
+            layer: normalizedIntent.layer,
+            scope: normalizedIntent.scope,
+            scopeName: normalizedIntent.scopeName,
+            targetIds: normalizedIntent.targetIds,
+            highlight: normalizedIntent.highlight,
+            fitBounds: normalizedIntent.fitBounds,
+            bounds: normalizedIntent.bounds
+          };
+        }
+        if (agentUpdate) {
+          mapUpdates.push(agentUpdate);
         }
       }
 

@@ -96,6 +96,7 @@ export default function MobileLayout({
   onSelectHarbor,
   onSelectUserLocation,
   onSetInlandLocation,
+  onDisengageInland,
   isUserLocationActive = false,
   userLocationTag,
   hasLiveMarineData = true,
@@ -370,13 +371,15 @@ export default function MobileLayout({
     try {
       const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        if (aiResponse.mapIntent) {
-          mobilePreviousMapIntentRef.current = aiResponse.mapIntent
-          executeMapIntent(aiResponse.mapIntent, aiResponse, {
+        if (aiResponse.mapIntent || aiResponse.mapUpdate) {
+          const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate
+          mobilePreviousMapIntentRef.current = effectiveIntent
+          executeMapIntent(effectiveIntent, aiResponse, {
             onSelectHarbor,
             onMapFocus,
             onSetInlandLocation,
             onSelectUserLocation,
+            onDisengageInland,
             onUpdateDynamicAdvisories,
             onUpdateDynamicZones
           })

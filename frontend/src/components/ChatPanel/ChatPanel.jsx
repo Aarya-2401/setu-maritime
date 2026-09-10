@@ -58,6 +58,7 @@ export default function ChatPanel({
   onSelectHarbor,
   onSelectUserLocation,
   onSetInlandLocation,
+  onDisengageInland,
   isUserLocationActive = false,
   userLocationTag,
   userLocation,
@@ -78,19 +79,28 @@ export default function ChatPanel({
   const previousMapIntentRef = useRef(null)
 
   async function sendMessage(text) {
-    const trimmed = text.trim()
-    if (!trimmed) return
+    const trimmed = (text || input).trim()
+    if (!trimmed || typing) return
 
-    const userMsg = { id: getUUID(), role: 'user', text: trimmed, time: timeNow() }
+    const userMsg = {
+      id: getUUID(),
+      role: 'user',
+      text: trimmed,
+      time: timeNow()
+    }
     onAddMessage(userMsg)
     setInput('')
     setTyping(true)
 
     const context = {
-      selectedHarborId: harbor?.harbor_id,
       previousMapIntent: previousMapIntentRef.current,
-      previousLocation: harbor ? {
-        name: harbor.landing_center_name,
+      selectedHarborId: harbor?.harbor_id,
+      userLocation: userLocation?.lat && userLocation?.lon ? {
+        latitude: Number(userLocation.lat),
+        longitude: Number(userLocation.lon),
+        label: userLocation.label
+      } : undefined,
+      currentHarborCoords: harbor?.latitude && harbor?.longitude ? {
         latitude: Number(harbor.latitude),
         longitude: Number(harbor.longitude)
       } : undefined
@@ -99,13 +109,15 @@ export default function ChatPanel({
     try {
       const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        if (aiResponse.mapIntent) {
-          previousMapIntentRef.current = aiResponse.mapIntent
-          executeMapIntent(aiResponse.mapIntent, aiResponse, {
+        if (aiResponse.mapIntent || aiResponse.mapUpdate) {
+          const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate
+          previousMapIntentRef.current = effectiveIntent
+          executeMapIntent(effectiveIntent, aiResponse, {
             onSelectHarbor,
             onMapFocus,
             onSetInlandLocation,
             onSelectUserLocation,
+            onDisengageInland,
             onUpdateDynamicAdvisories,
             onUpdateDynamicZones
           })
