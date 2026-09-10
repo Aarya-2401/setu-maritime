@@ -134,7 +134,7 @@ export default function MobileLayout({
   // Unified message sender for both typed input and suggestion pills
   async function handleSendMessage(text) {
     const trimmed = (text || '').trim()
-    if (!trimmed) return
+    if (!trimmed || typing) return
 
     const userMsg = {
       id: getMessageUUID(),
@@ -417,8 +417,8 @@ export default function MobileLayout({
           <div className="mobile-chat-header">
             <div className="mobile-chat-avatar">
               <img
-                src="/epsilon-six-mark.png"
-                alt="SETU"
+                src="/favicon-512x512.png"
+                alt="SETU E6"
                 className="mobile-chat-avatar-img"
               />
             </div>
@@ -458,6 +458,8 @@ export default function MobileLayout({
                 type="button"
                 className="mobile-suggestion-pill"
                 onClick={() => handleSendMessage(sug)}
+                onTouchStart={() => {}}
+                disabled={typing}
               >
                 {sug}
               </button>

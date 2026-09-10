@@ -214,7 +214,7 @@ export default function ChatPanel({
       <div className="chat-panel__header">
         <div className="chat-panel__title-row" title="SETU Adam-01 Autonomous Maritime Intelligence">
           <div className="chat-panel__logo-wrap">
-            <img src="/epsilon-six-mark.png" alt="Epsilon Six" className="chat-panel__logo-img" />
+            <img src="/favicon-512x512.png" alt="SETU E6" className="chat-panel__logo-img" />
           </div>
           <div className="chat-panel__brand-block">
             <span className="chat-panel__brand-title">SETU</span>

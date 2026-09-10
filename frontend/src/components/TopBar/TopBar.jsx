@@ -51,7 +51,7 @@ export default function TopBar({
 
         <div className="topbar__brand" title="SETU · Epsilon Six Maritime Intelligence">
           <div className="topbar__brand-icon">
-            <img src="/epsilon-six-mark.png" alt="Epsilon Six" className="topbar__brand-logo" />
+            <img src="/favicon-512x512.png" alt="Epsilon Six" className="topbar__brand-logo" />
           </div>
           <span className="topbar__brand-title">SETU</span>
         </div>
