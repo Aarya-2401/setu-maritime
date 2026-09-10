@@ -894,18 +894,10 @@ export default function MobileLayout({
       >
         <div className={`mobile-chat-card ${activeNav === 'chat' ? 'mobile-chat-card--maximized' : ''}`}>
           <div className="mobile-chat-header">
-            <div className="mobile-chat-avatar">
-              <img
-                src="/favicon-512x512.png"
-                alt="SETU E6"
-                className="mobile-chat-avatar-img"
-              />
-            </div>
             <div className="mobile-chat-identity">
               <span className="mobile-chat-title">SETU</span>
-              <span className="mobile-chat-subtitle">
-                {activeNav === 'chat' ? 'Adam-01 Autonomous Maritime Copilot' : 'Adam-01'}
-              </span>
+              <span className="mobile-chat-sep">/</span>
+              <span className="mobile-chat-subtitle">Adam-01</span>
             </div>
             <div className="mobile-chat-header__actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
@@ -1169,6 +1161,8 @@ export default function MobileLayout({
                     >
                       Tide forecast
                     </button>
+                  </div>
+                  <div className="mobile-empty-state__actions-row">
                     <button
                       type="button"
                       className="mobile-action mobile-action--secondary"
