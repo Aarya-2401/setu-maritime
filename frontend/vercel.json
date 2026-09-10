@@ -2,6 +2,10 @@
   "framework": "vite",
   "rewrites": [
     {
+      "source": "/api/:match*",
+      "destination": "https://setu-maritime-production.up.railway.app/api/:match*"
+    },
+    {
       "source": "/(.*)",
       "destination": "/"
     }
