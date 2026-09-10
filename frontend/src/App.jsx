@@ -23,11 +23,21 @@ import './App.css'
 export default function App() {
   const { harbors, loading: harborsLoading, error: harborsError } = useHarbors()
   const [selectedHarborId, setSelectedHarborId] = useState(1)
-  const [isUserLocationActive, setIsUserLocationActive] = useState(false)
+  const [isUserLocationActive, setIsUserLocationActive] = useState(() => {
+    try {
+      const cached = localStorage.getItem('setu_user_location')
+      return cached ? true : false
+    } catch { return false }
+  })
   const [selectedRouteId, setSelectedRouteId] = useState(null)
   const [mapFocusTarget, setMapFocusTarget] = useState(null)
   const [assessmentModalOpen, setAssessmentModalOpen] = useState(false)
-  const [userLocation, setUserLocation] = useState(null)
+  const [userLocation, setUserLocation] = useState(() => {
+    try {
+      const cached = localStorage.getItem('setu_user_location')
+      return cached ? JSON.parse(cached) : null
+    } catch { return null }
+  })
   const [liveWeatherData, setLiveWeatherData] = useState(null)
 
   const isMobile = useIsMobile(768)
@@ -36,9 +46,9 @@ export default function App() {
   const [messages, setMessages] = useState([
     {
       id: 'm1',
-      role: 'assistant',
-      text: 'Welcome to SETU-ADAM01. I can summarize the selected harbor’s route, weather, tide, and PFZ data when those feeds are available.',
-      time: '09:40 AM'
+      role: 'system',
+      text: '',
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
   ])
 
@@ -72,6 +82,7 @@ export default function App() {
             const locObj = { lat, lon, label, city, state }
             setUserLocation(locObj)
             setIsUserLocationActive(true)
+            try { localStorage.setItem('setu_user_location', JSON.stringify(locObj)) } catch {}
 
             // Fetch live Open-Meteo atmospheric metrics
             fetchLiveWeather(lat, lon).then((wData) => {
@@ -85,6 +96,7 @@ export default function App() {
             const locObj = { lat, lon, label: 'Current Location' }
             setUserLocation(locObj)
             setIsUserLocationActive(true)
+            try { localStorage.setItem('setu_user_location', JSON.stringify(locObj)) } catch {}
             fetchLiveWeather(lat, lon).then((wData) => {
               if (active && wData) {
                 setLiveWeatherData(wData)
@@ -117,6 +129,22 @@ export default function App() {
       active = false
     }
   }, [])
+
+  // Hydrate live weather and map focus from cached localStorage location on mount
+  useEffect(() => {
+    if (userLocation?.lat && userLocation?.lon && !liveWeatherData) {
+      fetchLiveWeather(userLocation.lat, userLocation.lon).then((wData) => {
+        if (wData) setLiveWeatherData(wData)
+      })
+      setMapFocusTarget({
+        lat: userLocation.lat,
+        lon: userLocation.lon,
+        zoom: 10,
+        label: 'User Detected Position',
+        timestamp: Date.now()
+      })
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Find the selected harbor object from loaded harbors list (with Kerala fallback)
   const selectedHarbor = useMemo(() => {

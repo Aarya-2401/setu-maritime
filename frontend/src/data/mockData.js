@@ -1,10 +1,11 @@
 // Static mock data and quick prompt definitions
 export const QUICK_PROMPTS = [
-  'Fish near Kerala tomorrow',
+  'Is it safe to depart?',
+  'Recommended route',
   'Nearest PFZ',
-  'Tide now',
-  'Weather tomorrow',
-  'Alerts',
+  'Weather conditions',
+  'Tide forecast',
+  'Active alerts',
 ]
 
 export const TIDE_POINTS = [

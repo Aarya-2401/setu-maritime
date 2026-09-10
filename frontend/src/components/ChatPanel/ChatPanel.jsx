@@ -65,7 +65,7 @@ export default function ChatPanel({
 }) {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
-  const [showCopilotCard, setShowCopilotCard] = useState(!isMobile)
+  const [showCopilotCard, setShowCopilotCard] = useState(false)
   const scrollRef = useRef(null)
 
   useEffect(() => {
@@ -248,6 +248,9 @@ export default function ChatPanel({
     ? 'DATA UNAVAILABLE'
     : 'ASSESSMENT PENDING'
 
+  // Determine if a real conversation has started (beyond the initial system marker)
+  const hasConversation = messages && messages.some((m) => m.role === 'user' || m.role === 'assistant')
+
   return (
     <aside className="chat-panel" aria-label="SETU Adam-01 Copilot">
       <div className="chat-panel__header">
@@ -268,7 +271,7 @@ export default function ChatPanel({
           aria-expanded={showCopilotCard}
         >
           <span className="copilot-toggle-dot" />
-          <span>{showCopilotCard ? 'Briefing ON' : 'Briefing OFF'}</span>
+          <span>{showCopilotCard ? 'AUTO BRIEFING · ON' : 'AUTO BRIEFING · OFF'}</span>
         </button>
       </div>
 
@@ -388,59 +391,133 @@ export default function ChatPanel({
       </div>
       )}
 
-      <div className="chat-panel__messages" ref={scrollRef}>
-        {messages && messages.map((m) => {
-          const suggestionsList = (m.suggestions && m.suggestions.length > 0)
-            ? m.suggestions
-            : (m.text && (m.text.includes('suggestions below') || m.text.includes('inland region') || m.text.includes('could not find a recognized fishing harbor') || m.text.includes('coastal maritime state')))
-            ? ['Veraval', 'Mumbai', 'Kochi', 'Paradip', 'Visakhapatnam', 'Chennai']
-            : []
+      {hasConversation ? (
+        <>
+          <div className="chat-panel__messages" ref={scrollRef}>
+            {messages && messages.filter((m) => m.role !== 'system').map((m) => {
+              const suggestionsList = (m.suggestions && m.suggestions.length > 0)
+                ? m.suggestions
+                : (m.text && (m.text.includes('suggestions below') || m.text.includes('inland region') || m.text.includes('could not find a recognized fishing harbor') || m.text.includes('coastal maritime state')))
+                ? ['Veraval', 'Mumbai', 'Kochi', 'Paradip', 'Visakhapatnam', 'Chennai']
+                : []
 
-          return (
-            <div key={m.id} className={`chat-msg chat-msg--${m.role}`}>
-              <div className="chat-msg__bubble">
-                <p>{m.text}</p>
-                {suggestionsList && suggestionsList.length > 0 && (
-                  <div className="chat-msg__suggestions">
-                    <span className="chat-msg__suggestions-label">Try a supported location:</span>
-                    <div className="chat-msg__suggestions-chips">
-                      {suggestionsList.slice(0, 5).map((sug, idx) => (
-                        <button
-                          key={idx}
-                          type="button"
-                          className="chat-msg__suggestion-btn"
-                          onClick={() => sendMessage(sug)}
-                        >
-                          {sug}
-                        </button>
-                      ))}
-                    </div>
+              return (
+                <div key={m.id} className={`chat-msg chat-msg--${m.role}`}>
+                  <div className="chat-msg__bubble">
+                    <p>{m.text}</p>
+                    {suggestionsList && suggestionsList.length > 0 && (
+                      <div className="chat-msg__suggestions">
+                        <span className="chat-msg__suggestions-label">Try a supported location:</span>
+                        <div className="chat-msg__suggestions-chips">
+                          {suggestionsList.slice(0, 5).map((sug, idx) => (
+                            <button
+                              key={idx}
+                              type="button"
+                              className="chat-msg__suggestion-btn"
+                              onClick={() => sendMessage(sug)}
+                            >
+                              {sug}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <span className="chat-msg__time">{m.time}</span>
                   </div>
-                )}
-                <span className="chat-msg__time">{m.time}</span>
+                </div>
+              )
+            })}
+
+            {typing && (
+              <div className="chat-msg chat-msg--assistant">
+                <div className="chat-msg__bubble chat-msg__bubble--typing">
+                  <span className="dot" />
+                  <span className="dot" />
+                  <span className="dot" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="chat-panel__quick">
+            {QUICK_PROMPTS.map((p) => (
+              <button key={p} className="chat-panel__quick-chip" onClick={() => sendMessage(p)}>
+                {p}
+              </button>
+            ))}
+          </div>
+        </>
+      ) : (
+        <div className="chat-empty-state" ref={scrollRef}>
+          <div className="chat-empty-state__content">
+            <span className="chat-empty-state__section-label">MARITIME COPILOT</span>
+
+            <p className="chat-empty-state__standing-by">
+              SETU-ADAM01 is standing by.
+            </p>
+            <p className="chat-empty-state__scope">
+              Ask about departure safety, weather, waves, tides, PFZs, or recommended sailing routes for your selected harbor.
+            </p>
+
+            <div className="chat-empty-state__harbor-context">
+              <span className="chat-empty-state__harbor-label">SELECTED HARBOR</span>
+              <span className="chat-empty-state__harbor-name">
+                {harbor?.landing_center_name || 'Harbor loading...'}
+                {harbor?.state ? ` · ${harbor.state}` : ''}
+              </span>
+            </div>
+
+            <div className="chat-empty-state__actions">
+              <button
+                type="button"
+                className="chat-action chat-action--primary"
+                onClick={() => sendMessage('Is it safe to depart?')}
+              >
+                Is it safe to depart?
+              </button>
+              <div className="chat-empty-state__actions-row">
+                <button
+                  type="button"
+                  className="chat-action chat-action--secondary"
+                  onClick={() => sendMessage('Recommended route')}
+                >
+                  Recommended route
+                </button>
+                <button
+                  type="button"
+                  className="chat-action chat-action--secondary"
+                  onClick={() => sendMessage('Nearest PFZ')}
+                >
+                  Nearest PFZ
+                </button>
+              </div>
+              <div className="chat-empty-state__actions-row">
+                <button
+                  type="button"
+                  className="chat-action chat-action--secondary"
+                  onClick={() => sendMessage('Weather conditions')}
+                >
+                  Weather conditions
+                </button>
+                <button
+                  type="button"
+                  className="chat-action chat-action--secondary"
+                  onClick={() => sendMessage('Tide forecast')}
+                >
+                  Tide forecast
+                </button>
+                <button
+                  type="button"
+                  className="chat-action chat-action--secondary"
+                  onClick={() => sendMessage('Active alerts')}
+                >
+                  Active alerts
+                </button>
               </div>
             </div>
-          )
-        })}
-
-        {typing && (
-          <div className="chat-msg chat-msg--assistant">
-            <div className="chat-msg__bubble chat-msg__bubble--typing">
-              <span className="dot" />
-              <span className="dot" />
-              <span className="dot" />
-            </div>
           </div>
-        )}
-      </div>
-
-      <div className="chat-panel__quick">
-        {QUICK_PROMPTS.map((p) => (
-          <button key={p} className="chat-panel__quick-chip" onClick={() => sendMessage(p)}>
-            {p}
-          </button>
-        ))}
-      </div>
+        </div>
+      )}
 
       <form
         className="chat-panel__input-row"
@@ -454,9 +531,9 @@ export default function ChatPanel({
             className="chat-panel__input"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Ask about this harbor..."
-            title="Ask about this harbor (Press '?' to focus)"
-            aria-label="Ask about this harbor"
+            placeholder={`Ask about ${harbor?.landing_center_name || 'this harbor'}...`}
+            title={`Ask about ${harbor?.landing_center_name || 'this harbor'}`}
+            aria-label={`Ask about ${harbor?.landing_center_name || 'this harbor'}`}
           />
         </div>
         <button type="submit" className="chat-panel__send" aria-label="Send message">

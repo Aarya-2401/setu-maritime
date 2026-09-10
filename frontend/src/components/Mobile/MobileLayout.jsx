@@ -887,7 +887,7 @@ export default function MobileLayout({
             ref={chatScrollRef}
           >
             {messages &&
-              messages.map((m) => (
+              messages.filter((m) => m.role !== 'system').map((m) => (
                 <div key={m.id} className={`mobile-chat-msg mobile-chat-msg--${m.role}`}>
                   <div className="mobile-chat-bubble">
                     <p className="mobile-chat-bubble__text">{m.text}</p>
@@ -915,7 +915,7 @@ export default function MobileLayout({
                 type="button"
                 className="mobile-suggestion-pill"
                 onClick={() => {
-                  if (sug.toLowerCase() === 'alerts') {
+                  if (sug.toLowerCase().includes('alerts')) {
                     setActiveNav('alerts')
                   } else {
                     handleSendMessage(sug)
