@@ -659,7 +659,8 @@ export default function MapSection({
   loading,
   hasApiError,
   mapFocusTarget,
-  userLocation
+  userLocation,
+  isMobile = false
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -796,163 +797,184 @@ export default function MapSection({
             <MapLayers {...mapLayerProps} />
           </MapContainer>
 
-          {/* Active Target Focus Lock Banner */}
-          {mapFocusTarget?.label && (
+          {/* Active Target Focus Lock Banner (desktop only) */}
+          {!isMobile && mapFocusTarget?.label && (
             <div className="map-radar-lock-banner">
               <span className="radar-lock-ping" />
               <span className="radar-lock-text">{mapFocusTarget.label}</span>
             </div>
           )}
 
-          {/* Floating Frosted Glass Header Overlay on Map */}
-          <div className="map-overlay-header">
-            <div className="map-overlay-header__left">
-              <div className="map-glass-icon" title="Navigation Radar Telemetry">
-                <IconRadar size={13} color="#35c9e8" />
-              </div>
-              <span className="map-overlay-header__title">Navigation radar</span>
-              <button
-                className="map-section__compliance-pill"
-                style={{
-                  color: complianceColor,
-                  background: `${complianceColor}18`,
-                  borderColor: `${complianceColor}40`,
-                  cursor: onOpenAssessment ? 'pointer' : 'default'
-                }}
-                onClick={onOpenAssessment}
-                title="Click to view full operational assessment"
-              >
-                {complianceStatus}
-              </button>
-              <span className="map-overlay-header__station">
-                {locationName}
-              </span>
-            </div>
-
-            <div className="map-overlay-header__actions">
-              <button
-                className="map-section__expand-btn"
-                onClick={() => setIsExpanded(true)}
-                title="Expand map with background blur (Shortcut: M)"
-              >
-                <IconMaximize size={13} color="#35c9e8" />
-                <span>Expand</span>
-              </button>
-              <button
-                className="map-section__route-btn"
-                onClick={() => setModalOpen(true)}
-                title="Open full Geofence Compliance & Route Verification table (Shortcut: R)"
-              >
-                Routes ({routes?.length || 0})
-              </button>
-              <div
-                className="map-section__badge"
-                title={`Telemetry node online · Feed: ${assessment?.dataFreshness || 'Live'}`}
-              >
-                <span className={`map-section__dot${loading ? ' map-section__dot--pulse' : ''}`} />
-                <span>{loading ? 'Syncing...' : hasApiError ? 'Offline' : 'Live Telemetry'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Floating Geofence & Operational Clearance HUD on Map */}
-          <div className="map-geofence-hud">
-            <div className="map-geofence-hud__section">
-              <div className="map-geofence-hud__header">
-                <div className="map-geofence-hud__title-wrap">
-                  <div className="map-glass-icon map-glass-icon--sm" title="Geospatial Satellite Monitoring">
-                    <IconGlobe size={11} color="#35c9e8" />
-                  </div>
-                  <span className="hud-title">GEOSPATIAL STATUS</span>
+          {/* Floating Frosted Glass Header Overlay on Map (desktop only) */}
+          {!isMobile && (
+            <div className="map-overlay-header">
+              <div className="map-overlay-header__left">
+                <div className="map-glass-icon" title="Navigation Radar Telemetry">
+                  <IconRadar size={13} color="#35c9e8" />
                 </div>
-                <span className={`hud-badge ${geofenceStatus === 'BLOCKED' ? 'hud-badge--fail' : geofenceStatus === 'UNAVAILABLE' ? 'hud-badge--neutral' : geofenceStatus === 'CAUTION' ? 'hud-badge--warn' : 'hud-badge--pass'}`}>
-                  {geofenceStatus}
+                <span className="map-overlay-header__title">Navigation radar</span>
+                <button
+                  className="map-section__compliance-pill"
+                  style={{
+                    color: complianceColor,
+                    background: `${complianceColor}18`,
+                    borderColor: `${complianceColor}40`,
+                    cursor: onOpenAssessment ? 'pointer' : 'default'
+                  }}
+                  onClick={onOpenAssessment}
+                  title="Click to view full operational assessment"
+                >
+                  {complianceStatus}
+                </button>
+                <span className="map-overlay-header__station">
+                  {locationName}
                 </span>
               </div>
-              <div className="map-geofence-hud__checks">
-                <div className="hud-check">
-                  <span className="hud-icon">{hasRouteData ? <CheckPassIcon /> : <CheckWarnIcon />}</span>
-                  <span>EEZ: {hasRouteData ? 'route evaluated' : 'route data required'}</span>
-                </div>
-                <div className="hud-check">
-                  <span className="hud-icon">{!hasRouteData || isTopCaution ? <CheckWarnIcon /> : <CheckPassIcon />}</span>
-                  <span>IMBL: {!hasRouteData ? 'not evaluated' : isTopCaution ? 'caution' : 'clear'}</span>
-                </div>
-                <div className="hud-check">
-                  <span className="hud-icon">{!hasRouteData || !hasZoneData ? <CheckWarnIcon /> : hasSanctuaryViolation ? <CheckFailIcon /> : <CheckPassIcon />}</span>
-                  <span>Restricted: {!hasRouteData ? 'not evaluated' : !hasZoneData ? 'zone data required' : hasSanctuaryViolation ? `traverses ${activeViolation}` : 'clear'}</span>
+
+              <div className="map-overlay-header__actions">
+                <button
+                  className="map-section__expand-btn"
+                  onClick={() => setIsExpanded(true)}
+                  title="Expand map with background blur (Shortcut: M)"
+                >
+                  <IconMaximize size={13} color="#35c9e8" />
+                  <span>Expand</span>
+                </button>
+                <button
+                  className="map-section__route-btn"
+                  onClick={() => setModalOpen(true)}
+                  title="Open full Geofence Compliance & Route Verification table (Shortcut: R)"
+                >
+                  Routes ({routes?.length || 0})
+                </button>
+                <div
+                  className="map-section__badge"
+                  title={`Telemetry node online · Feed: ${assessment?.dataFreshness || 'Live'}`}
+                >
+                  <span className={`map-section__dot${loading ? ' map-section__dot--pulse' : ''}`} />
+                  <span>{loading ? 'Syncing...' : hasApiError ? 'Offline' : 'Live Telemetry'}</span>
                 </div>
               </div>
             </div>
+          )}
 
-            <div className="map-geofence-hud__divider" />
-
-            <div className="map-geofence-hud__section">
-              <div className="map-geofence-hud__header">
-                <div className="map-geofence-hud__title-wrap">
-                  <div className="map-glass-icon map-glass-icon--sm" title="Ocean Sensor Feeds">
-                    <IconCompass size={11} color="#35c9e8" />
+          {/* Floating Geofence & Operational Clearance HUD on Map (desktop only) */}
+          {!isMobile && (
+            <div className="map-geofence-hud">
+              <div className="map-geofence-hud__section">
+                <div className="map-geofence-hud__header">
+                  <div className="map-geofence-hud__title-wrap">
+                    <div className="map-glass-icon map-glass-icon--sm" title="Geospatial Satellite Monitoring">
+                      <IconGlobe size={11} color="#35c9e8" />
+                    </div>
+                    <span className="hud-title">GEOSPATIAL STATUS</span>
                   </div>
-                  <span className="hud-title">OPERATIONAL STATUS</span>
-                </div>
-                {onOpenAssessment && (
-                  <button className="hud-why-btn" onClick={onOpenAssessment} title="Open Assessment Breakdown">
-                    Why?
-                  </button>
-                )}
-              </div>
-              <div className="map-geofence-hud__checks">
-                <div className="hud-metric">
-                  <span>Wave: <b>{waveHeight != null ? `${waveHeight.toFixed(1)}m` : '--'}</b></span>
-                  <span className={`hud-metric-pill hud-metric-pill--${waveImpactTone}`}>
-                    {waveImpact}
+                  <span className={`hud-badge ${geofenceStatus === 'BLOCKED' ? 'hud-badge--fail' : geofenceStatus === 'UNAVAILABLE' ? 'hud-badge--neutral' : geofenceStatus === 'CAUTION' ? 'hud-badge--warn' : 'hud-badge--pass'}`}>
+                    {geofenceStatus}
                   </span>
                 </div>
-                <div className="hud-metric">
-                  <span>Wind: <b>{windSpeed != null ? `${Math.round(windSpeed)} km/h` : '--'}</b></span>
-                  <span className={`hud-metric-pill hud-metric-pill--${windImpactTone}`}>
-                    {windImpact}
-                  </span>
+                <div className="map-geofence-hud__checks">
+                  <div className="hud-check">
+                    <span className="hud-icon">{hasRouteData ? <CheckPassIcon /> : <CheckWarnIcon />}</span>
+                    <span>EEZ: {hasRouteData ? 'route evaluated' : 'route data required'}</span>
+                  </div>
+                  <div className="hud-check">
+                    <span className="hud-icon">{!hasRouteData || isTopCaution ? <CheckWarnIcon /> : <CheckPassIcon />}</span>
+                    <span>IMBL: {!hasRouteData ? 'not evaluated' : isTopCaution ? 'caution' : 'clear'}</span>
+                  </div>
+                  <div className="hud-check">
+                    <span className="hud-icon">{!hasRouteData || !hasZoneData ? <CheckWarnIcon /> : hasSanctuaryViolation ? <CheckFailIcon /> : <CheckPassIcon />}</span>
+                    <span>Restricted: {!hasRouteData ? 'not evaluated' : !hasZoneData ? 'zone data required' : hasSanctuaryViolation ? `traverses ${activeViolation}` : 'clear'}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
 
-          {/* Map Legend */}
-          <div className="map-section__legend">
-            <div className="map-legend__header">
-              <div className="map-glass-icon map-glass-icon--xs" title="Geospatial Key">
-                <IconLayers size={10} color="#35c9e8" />
-              </div>
-              <span className="map-section__legend-title">Geospatial Key</span>
-            </div>
-            <div className="map-legend__grid">
-              <div className="map-legend__item">
-                <span className="legend-dot" style={{ background: '#10b981' }} />
-                <span>PFZ Hotspot</span>
-              </div>
-              <div className="map-legend__item">
-                <span className="legend-line" style={{ borderTop: '3px solid #06b6d4' }} />
-                <span>Recommended Route</span>
-              </div>
-              <div className="map-legend__item">
-                <span className="legend-line" style={{ borderTop: '2px dashed #94a3b8' }} />
-                <span>Alternative Route</span>
-              </div>
-              <div className="map-legend__item">
-                <span className="legend-dot" style={{ background: '#f43f5e' }} />
-                <span>Restricted Sanctuary</span>
-              </div>
-              <div className="map-legend__item">
-                <span className="legend-line" style={{ borderTop: '2px dashed #f59e0b' }} />
-                <span>200 NM EEZ Limit</span>
-              </div>
-              <div className="map-legend__item">
-                <span className="legend-line" style={{ borderTop: '2px dashed #f43f5e' }} />
-                <span>IMBL Border</span>
+              <div className="map-geofence-hud__divider" />
+
+              <div className="map-geofence-hud__section">
+                <div className="map-geofence-hud__header">
+                  <div className="map-geofence-hud__title-wrap">
+                    <div className="map-glass-icon map-glass-icon--sm" title="Ocean Sensor Feeds">
+                      <IconCompass size={11} color="#35c9e8" />
+                    </div>
+                    <span className="hud-title">OPERATIONAL STATUS</span>
+                  </div>
+                  {onOpenAssessment && (
+                    <button className="hud-why-btn" onClick={onOpenAssessment} title="Open Assessment Breakdown">
+                      Why?
+                    </button>
+                  )}
+                </div>
+                <div className="map-geofence-hud__checks">
+                  <div className="hud-metric">
+                    <span>Wave: <b>{waveHeight != null ? `${waveHeight.toFixed(1)}m` : '--'}</b></span>
+                    <span className={`hud-metric-pill hud-metric-pill--${waveImpactTone}`}>
+                      {waveImpact}
+                    </span>
+                  </div>
+                  <div className="hud-metric">
+                    <span>Wind: <b>{windSpeed != null ? `${Math.round(windSpeed)} km/h` : '--'}</b></span>
+                    <span className={`hud-metric-pill hud-metric-pill--${windImpactTone}`}>
+                      {windImpact}
+                    </span>
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+
+          {/* Map Legend (desktop only) */}
+          {!isMobile && (
+            <div className="map-section__legend">
+              <div className="map-legend__header">
+                <div className="map-glass-icon map-glass-icon--xs" title="Geospatial Key">
+                  <IconLayers size={10} color="#35c9e8" />
+                </div>
+                <span className="map-section__legend-title">Geospatial Key</span>
+              </div>
+              <div className="map-legend__grid">
+                <div className="map-legend__item">
+                  <span className="legend-dot" style={{ background: '#10b981' }} />
+                  <span>PFZ Hotspot</span>
+                </div>
+                <div className="map-legend__item">
+                  <span className="legend-line" style={{ borderTop: '3px solid #06b6d4' }} />
+                  <span>Recommended Route</span>
+                </div>
+                <div className="map-legend__item">
+                  <span className="legend-line" style={{ borderTop: '2px dashed #94a3b8' }} />
+                  <span>Alternative Route</span>
+                </div>
+                <div className="map-legend__item">
+                  <span className="legend-dot" style={{ background: '#f43f5e' }} />
+                  <span>Restricted Sanctuary</span>
+                </div>
+                <div className="map-legend__item">
+                  <span className="legend-line" style={{ borderTop: '2px dashed #f59e0b' }} />
+                  <span>200 NM EEZ Limit</span>
+                </div>
+                <div className="map-legend__item">
+                  <span className="legend-line" style={{ borderTop: '2px dashed #f43f5e' }} />
+                  <span>IMBL Border</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Mobile Wave Height Gradient Legend at bottom-left */}
+          {isMobile && (
+            <div className="mobile-wave-legend" aria-label="Wave height scale in meters">
+              <span className="mobile-wave-legend__title">Wave Height (m)</span>
+              <div className="mobile-wave-legend__bar" />
+              <div className="mobile-wave-legend__scale">
+                <span>0</span>
+                <span>1</span>
+                <span>2</span>
+                <span>3</span>
+                <span>4+</span>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 

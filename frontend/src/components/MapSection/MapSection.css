@@ -920,3 +920,45 @@
   }
 }
 
+/* Mobile Wave Height Gradient Legend */
+.mobile-wave-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+  z-index: 500;
+  background: rgba(7, 16, 28, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 6px 10px;
+  width: 130px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.mobile-wave-legend__title {
+  display: block;
+  font-size: 9.5px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+
+.mobile-wave-legend__bar {
+  height: 5px;
+  width: 100%;
+  border-radius: 3px;
+  background: linear-gradient(to right, #1d4ed8 0%, #06b6d4 25%, #10b981 50%, #f59e0b 75%, #ef4444 100%);
+  margin-bottom: 3px;
+}
+
+.mobile-wave-legend__scale {
+  display: flex;
+  justify-content: space-between;
+  font-size: 8.5px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+

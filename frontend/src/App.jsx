@@ -56,7 +56,22 @@ export default function App() {
         if (!active) return
         const lat = pos.coords.latitude
         const lon = pos.coords.longitude
-        setUserLocation({ lat, lon })
+
+        // Reverse geocoding to obtain human-readable city, state
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json`)
+          .then((res) => res.json())
+          .then((data) => {
+            if (!active) return
+            const addr = data?.address || {}
+            const city = addr.city || addr.town || addr.village || addr.county || addr.state_district || ''
+            const state = addr.state || ''
+            const label = city && state ? `${city}, ${state}` : city || state || 'Current Location'
+            setUserLocation({ lat, lon, label, city, state })
+          })
+          .catch(() => {
+            if (!active) return
+            setUserLocation({ lat, lon, label: 'Current Location' })
+          })
 
         // Smoothly center the map on the user's detected coordinates
         setMapFocusTarget({
@@ -106,6 +121,7 @@ export default function App() {
     setSelectedHarborId(id)
     setSelectedRouteId(null)
     setMapFocusTarget(null)
+    setUserLocation((prev) => (prev ? { ...prev, label: null } : null))
   }
 
   // Demonstration trigger: Synchronous maritime consultation switch & seamless map zoom to Kerala PFZ
