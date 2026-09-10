@@ -84,7 +84,8 @@ export async function runOrca(query: string, context?: ConversationContext) {
         };
       }
 
-      if (locRes.status === 'UNKNOWN' && p.location?.name) {
+      const isNationalScope = p.mapIntent?.scope === 'NATIONAL' || p.intent === 'PFZ_OVERVIEW' || p.location?.name?.toLowerCase() === 'india' || p.mapIntent?.layer === 'EEZ' || p.mapIntent?.layer === 'IMBL';
+      if (locRes.status === 'UNKNOWN' && p.location?.name && !isNationalScope) {
         let fallbackHarbor: any = null;
         try {
           const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = 1 LIMIT 1');

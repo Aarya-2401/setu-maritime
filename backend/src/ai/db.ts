@@ -276,6 +276,18 @@ export async function resolveLocation(locationInput?: string | { name?: string; 
   if (location?.name) {
     const raw = location.name.toLowerCase().trim();
 
+    // National / Country-wide scope
+    if (raw === 'india' || raw === 'national' || raw === 'all india' || raw === 'nationwide') {
+      return {
+        status: 'SUPPORTED',
+        locationType: 'REGION',
+        locationName: 'India',
+        harbor: null,
+        referenceHarbor: null,
+        suggestions: fallbackSuggestions
+      };
+    }
+
     // Check coastal states first (e.g. Odisha, Kerala, Gujarat)
     const matchedState = COASTAL_STATE_REFS.find(cs =>
       cs.aliases.some(alias =>
