@@ -15,8 +15,6 @@ export default function TopBar({
   safetyData,
   assessment,
   onOpenAssessment,
-  sidebarOpen,
-  onToggleSidebar,
   loading,
   hasApiError
 }) {
@@ -50,16 +48,6 @@ export default function TopBar({
     <header className="topbar">
       {/* Column 1 (Left 50%): Identity, Harbor Selector & Live Marine Telemetry */}
       <div className="topbar__col topbar__col--left">
-        <button
-          className={`topbar__hamburger ${sidebarOpen ? 'topbar__hamburger--active' : ''}`}
-          onClick={onToggleSidebar}
-          aria-label="Toggle Navigation Menu (Shortcut: S)"
-          title="Toggle Mission History (Shortcut: S)"
-        >
-          <span className="hamburger-bar" />
-          <span className="hamburger-bar" />
-          <span className="hamburger-bar" />
-        </button>
 
         <div className="topbar__brand" title="SETU · Epsilon Six Maritime Intelligence">
           <div className="topbar__brand-icon">

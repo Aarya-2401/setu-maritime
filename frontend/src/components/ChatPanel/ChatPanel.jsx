@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { QUICK_PROMPTS } from '../../data/mockData'
 import { calculateETA } from '../../data/decisionLogic'
 import { getUNLocode, getFormattedHarborTag } from '../../data/harborCodes'
+import { detectInlandLocation } from '../../data/inlandDetector'
 import { askOrcaAI } from '../../services/aiService'
 import { IconRadar, IconSend } from '../Icons'
 import './ChatPanel.css'
@@ -54,11 +55,12 @@ export default function ChatPanel({
   hasApiError,
   onTriggerKeralaDemo,
   onSelectHarbor,
-  onMapFocus
+  onMapFocus,
+  isMobile = false
 }) {
   const [input, setInput] = useState('')
   const [typing, setTyping] = useState(false)
-  const [showCopilotCard, setShowCopilotCard] = useState(true)
+  const [showCopilotCard, setShowCopilotCard] = useState(!isMobile)
   const scrollRef = useRef(null)
 
   useEffect(() => {
@@ -73,6 +75,9 @@ export default function ChatPanel({
     onAddMessage(userMsg)
     setInput('')
     setTyping(true)
+
+    // Check if query refers to an inland location
+    const inlandMatch = detectInlandLocation(trimmed)
 
     // Proactively detect harbor/location mentions in user prompt against loaded 56 harbors
     const lower = trimmed.toLowerCase()
@@ -145,12 +150,16 @@ export default function ChatPanel({
         }
         // If INLAND or UNKNOWN, mapUpdate is null and map camera remains untouched
 
+        const replySuggestions = (aiResponse.suggestions && aiResponse.suggestions.length > 0)
+          ? aiResponse.suggestions
+          : (inlandMatch ? inlandMatch.suggestions : [])
+
         const reply = {
           id: getUUID(),
           role: 'assistant',
           text: aiResponse.answer,
           time: timeNow(),
-          suggestions: aiResponse.suggestions || []
+          suggestions: replySuggestions
         }
         onAddMessage(reply)
         setTyping(false)
@@ -158,6 +167,22 @@ export default function ChatPanel({
       }
     } catch (err) {
       console.warn('AI endpoint unavailable, using local maritime telemetry engine:', err.message)
+    }
+
+    // Fallback response: if inland detected, provide inland message + harbor suggestion chips
+    if (inlandMatch) {
+      setTimeout(() => {
+        const reply = {
+          id: getUUID(),
+          role: 'assistant',
+          text: `${inlandMatch.place} is an inland location with no maritime coast or marine fishing harbor. SETU monitors coastal operations across recognized fishing harbors. Try selecting a nearby harbor:`,
+          time: timeNow(),
+          suggestions: inlandMatch.suggestions
+        }
+        onAddMessage(reply)
+        setTyping(false)
+      }, 450)
+      return
     }
 
     setTimeout(() => {

@@ -1,0 +1,118 @@
+/* Compact Telemetry Capsules for Mobile Header */
+.mobile-capsules {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--bg-panel, #070e17);
+  border-bottom: 1px solid var(--border, rgba(53, 201, 232, 0.18));
+  padding: 4px 6px;
+  flex-shrink: 0;
+  z-index: 90;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobile-capsules::-webkit-scrollbar {
+  display: none;
+}
+
+.mobile-capsules__track {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  min-width: min-content;
+  justify-content: space-between;
+}
+
+.mobile-capsule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-card, #0c1828);
+  border: 1px solid var(--border, rgba(53, 201, 232, 0.2));
+  border-radius: 14px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  flex: 1 0 auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.15s ease;
+}
+
+.mobile-capsule__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mobile-capsule__data {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.1;
+  min-width: 0;
+}
+
+.mobile-capsule__label {
+  font-size: 7.5px;
+  font-weight: 700;
+  color: var(--text-muted, #94a3b8);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.mobile-capsule__val {
+  font-family: var(--font-display);
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--text-primary, #f1f5f9);
+  letter-spacing: 0.02em;
+}
+
+.mobile-capsule__badge {
+  font-family: var(--font-mono, monospace);
+  font-size: 8px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-radius: 3px;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.mobile-capsule__badge--good {
+  background: rgba(16, 185, 129, 0.14);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.mobile-capsule__badge--moderate {
+  background: rgba(245, 158, 11, 0.14);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.mobile-capsule__badge--bad {
+  background: rgba(239, 68, 68, 0.14);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.mobile-capsule__badge--neutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #94a3b8;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+@media (max-width: 380px) {
+  .mobile-capsule {
+    padding: 2px 5px;
+    gap: 4px;
+  }
+  .mobile-capsule__val {
+    font-size: 9.5px;
+  }
+  .mobile-capsule__badge {
+    font-size: 7.5px;
+    padding: 0 3px;
+  }
+}

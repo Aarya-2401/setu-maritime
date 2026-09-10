@@ -140,6 +140,7 @@ export const REGIONAL_CITY_MAP: Record<string, number> = {
 };
 
 export const INLAND_REGIONS = new Set([
+  'ahmedabad', 'gandhinagar', 'vadodara', 'anand', 'rajkot',
   'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur',
   'bhopal', 'indore', 'patna', 'lucknow', 'kanpur', 'chandigarh', 'pune', 'gurgaon',
   'noida', 'ranchi', 'raipur', 'dehradun', 'shimla', 'srinagar', 'amritsar', 'ludhiana',
@@ -275,11 +276,16 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
         (raw.length >= 4 && inland.length >= 4 && levenshtein(raw, inland) <= (inland.length <= 4 ? 1 : 2))
       );
     if (isInland) {
+      const isGujaratInland = raw.includes('ahmedabad') || raw.includes('gandhinagar') || raw.includes('vadodara') || raw.includes('anand') || raw.includes('rajkot');
+      const inlandSuggestions = isGujaratInland
+        ? ['Hazira Port', 'Mundra Port', 'Dahej Port', 'Veraval']
+        : fallbackSuggestions;
+
       return {
         status: 'INLAND',
         locationName: location.name,
         harbor: null,
-        suggestions: fallbackSuggestions
+        suggestions: inlandSuggestions
       };
     }
 

@@ -40,6 +40,23 @@ function createHarborMarkerIcon(locode = 'IN-HAR') {
   })
 }
 
+// Self-contained custom SVG user location marker icon
+function createUserMarkerIcon() {
+  return L.divIcon({
+    className: 'custom-user-marker',
+    html: `
+      <div class="user-marker-pin">
+        <span class="user-marker-pulse"></span>
+        <span class="user-marker-core"></span>
+        <span class="user-marker-tag">YOU</span>
+      </div>
+    `,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -20],
+  })
+}
+
 // Dynamic map camera controller with smooth cinematic flight animation
 function MapCameraController({ centerLat, centerLon, focusTarget }) {
   const map = useMap()
@@ -150,7 +167,8 @@ function MapLayers({
   layerEEZ,
   maritimeBoundaries,
   selectedRouteId,
-  onSelectRoute
+  onSelectRoute,
+  userLocation
 }) {
   const locode = getUNLocode(harbor)
   const harborMarkerIcon = useMemo(() => createHarborMarkerIcon(locode), [locode])
@@ -604,6 +622,25 @@ function MapLayers({
             </Polyline>
           )
         })}
+
+      {/* Real-time User Geolocation Position Marker */}
+      {userLocation && userLocation.lat && userLocation.lon && (
+        <Marker
+          position={[Number(userLocation.lat), Number(userLocation.lon)]}
+          icon={createUserMarkerIcon()}
+          zIndexOffset={1000}
+        >
+          <Popup className="custom-maritime-popup">
+            <div className="popup-title">Current Location</div>
+            <div className="popup-detail">
+              Detected Position: {Number(userLocation.lat).toFixed(4)}°N, {Number(userLocation.lon).toFixed(4)}°E
+            </div>
+          </Popup>
+          <Tooltip direction="top" offset={[0, -18]} opacity={0.95}>
+            Your Position ({Number(userLocation.lat).toFixed(3)}°N, {Number(userLocation.lon).toFixed(3)}°E)
+          </Tooltip>
+        </Marker>
+      )}
     </>
   )
 }
@@ -621,7 +658,8 @@ export default function MapSection({
   onOpenAssessment,
   loading,
   hasApiError,
-  mapFocusTarget
+  mapFocusTarget,
+  userLocation
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -721,7 +759,8 @@ export default function MapSection({
     layerEEZ,
     maritimeBoundaries,
     selectedRouteId,
-    onSelectRoute
+    onSelectRoute,
+    userLocation
   }
   const geofenceStatus = !hasRouteData
     ? 'UNAVAILABLE'

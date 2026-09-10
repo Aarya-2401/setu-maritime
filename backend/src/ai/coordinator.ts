@@ -40,6 +40,7 @@ export function fallbackPlan(query: string): CoordinatorRequest {
     'goa', 'panaji', 'panjim', 'vasco', 'cutbona', 'chapora',
     'maharashtra', 'maharastra', 'mumbai', 'bombay', 'sassoon', 'versova', 'ratnagiri', 'malvan',
     'gujarat', 'gujrat', 'veraval', 'somnath', 'porbandar', 'okha', 'dwarka', 'mangrol', 'jafarabad',
+    'ahmedabad', 'gandhinagar', 'vadodara', 'rajkot', 'anand',
     'lakshadweep', 'lakshdweep', 'kavaratti', 'agatti', 'minicoy',
     'andaman', 'nicobar', 'port blair', 'havelock', 'diglipur',
     'delhi', 'new delhi', 'bangalore', 'bengaluru', 'hyderabad', 'jaipur', 'nagpur', 'bhopal', 'pune', 'lucknow', 'patna',

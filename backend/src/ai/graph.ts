@@ -33,7 +33,7 @@ export async function runOrca(query: string) {
           results: [],
           cardUpdates: [],
           mapUpdates: [],
-          answer: `${place} is an inland region with no maritime coast or marine fishing harbor. SETU-ADAM01 monitors coastal operations across India's 56 recognized fishing harbors. Try selecting a coastal harbor from the suggestions below.`
+          answer: `${place} is an inland location with no maritime coast or marine fishing harbor. Try a nearby harbor from the suggestions below:`
         };
       }
 
