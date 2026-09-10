@@ -123,6 +123,9 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (payload?.mapData?.restrictedZones && onUpdateDynamicZones) {
         onUpdateDynamicZones(payload.mapData.restrictedZones);
       }
+      if (onUpdateDynamicAdvisories) {
+        onUpdateDynamicAdvisories(null);
+      }
       const label = intent.scopeName
         ? 'Restricted Zones: ' + intent.scopeName
         : 'Marine Protected Areas and Sanctuaries';
@@ -144,6 +147,9 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       const isNational = scope === 'NATIONAL';
       if (payload?.mapData?.pfz && onUpdateDynamicAdvisories) {
         onUpdateDynamicAdvisories(payload.mapData.pfz);
+      }
+      if (onUpdateDynamicZones) {
+        onUpdateDynamicZones(null);
       }
       const label = isNational
         ? 'National PFZ View (India)'

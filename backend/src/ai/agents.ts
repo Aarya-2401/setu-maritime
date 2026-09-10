@@ -203,23 +203,55 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     }
   }
 
-  const recommendations = rows.map((r: any) => ({
-    id: String(r.advisory_id || r.id),
-    advisoryId: String(r.advisory_id || r.id),
-    harborId: r.harbor_id,
-    referenceHarbor: r.reference_harbor,
-    state: r.state,
-    latitude: num(firstDefined(r, ['latitude', 'lat', 'pfz_latitude'])),
-    longitude: num(firstDefined(r, ['longitude', 'lon', 'pfz_longitude'])),
-    targetSpecies: firstDefined(r, ['target_species', 'species', 'targetSpecies']),
-    chlorophyllA: num(firstDefined(r, ['chlorophyll_a', 'chlorophyll', 'chlorophyllA'])),
-    sst: num(firstDefined(r, ['sst', 'sst_c', 'sst_celsius'])),
-    depth: num(firstDefined(r, ['depth', 'depth_meters', 'depth_contour_m'])),
-    gear: firstDefined(r, ['recommended_gear', 'gear']),
-    distanceKm: num(firstDefined(r, ['distance_km', 'distance'])),
-    bulletin: firstDefined(r, ['bulletin_text', 'bulletin', 'bulletin_text_english']),
-    score: num(firstDefined(r, ['pfz_score', 'score']))
-  }));
+  const recommendations = rows.map((r: any) => {
+    const lat = num(firstDefined(r, ['latitude', 'lat', 'pfz_latitude', 'pfzLatitude']));
+    const lon = num(firstDefined(r, ['longitude', 'lon', 'pfz_longitude', 'pfzLongitude']));
+    const advId = String(firstDefined(r, ['advisory_id', 'advisoryId', 'id']) || '');
+    const species = firstDefined(r, ['target_species', 'targetSpecies', 'species']) || 'Pelagic Fish';
+    const gear = firstDefined(r, ['recommended_gear', 'gear']) || 'Gillnet';
+    const sstVal = num(firstDefined(r, ['sst_celsius', 'sst', 'sst_c']));
+    const depthVal = num(firstDefined(r, ['depth_contour_m', 'depth', 'depth_meters']));
+    const distKm = num(firstDefined(r, ['distance_km', 'distanceKm', 'distance']));
+    const distNm = num(firstDefined(r, ['distance_nm', 'distanceNm'])) ?? (distKm ? +(distKm / 1.852).toFixed(1) : null);
+    const bearingCompass = firstDefined(r, ['bearing_compass', 'bearingCompass']) || 'SW';
+    const bearingDeg = num(firstDefined(r, ['bearing_deg', 'bearingDeg'])) ?? 225;
+    const refHarbor = firstDefined(r, ['reference_harbor', 'referenceHarbor', 'landing_center_name']);
+
+    return {
+      id: advId,
+      advisoryId: advId,
+      advisory_id: advId,
+      harborId: r.harbor_id,
+      harbor_id: r.harbor_id,
+      referenceHarbor: refHarbor,
+      reference_harbor: refHarbor,
+      landing_center_name: refHarbor,
+      state: r.state,
+      latitude: lat,
+      longitude: lon,
+      pfz_latitude: lat,
+      pfz_longitude: lon,
+      targetSpecies: species,
+      target_species: species,
+      chlorophyllA: num(firstDefined(r, ['chlorophyll_a', 'chlorophyll_a_mg_m3', 'chlorophyll', 'chlorophyllA'])),
+      chlorophyll_a: num(firstDefined(r, ['chlorophyll_a', 'chlorophyll_a_mg_m3', 'chlorophyll', 'chlorophyllA'])),
+      chlorophyll_a_mg_m3: num(firstDefined(r, ['chlorophyll_a', 'chlorophyll_a_mg_m3', 'chlorophyll', 'chlorophyllA'])),
+      sst: sstVal,
+      sst_celsius: sstVal,
+      depth: depthVal,
+      depth_contour_m: depthVal,
+      gear: gear,
+      recommended_gear: gear,
+      distanceKm: distKm,
+      distance_km: distKm,
+      distance_nm: distNm,
+      bearing_compass: bearingCompass,
+      bearing_deg: bearingDeg,
+      bulletin: firstDefined(r, ['bulletin_text', 'bulletin', 'bulletin_text_english']),
+      bulletin_text_english: firstDefined(r, ['bulletin_text', 'bulletin', 'bulletin_text_english']),
+      score: num(firstDefined(r, ['pfz_score', 'score']))
+    };
+  });
 
   const best = recommendations.find((x: any) => x.latitude != null && x.longitude != null) || recommendations[0];
   const data = { recommendations, count: recommendations.length, isNational };

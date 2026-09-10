@@ -5,6 +5,7 @@ import {
   Marker,
   Popup,
   Circle,
+  CircleMarker,
   Polyline,
   Tooltip,
   useMap
@@ -430,95 +431,7 @@ function MapLayers({
           )
         })}
 
-      {/* 3. PFZ Potential Fishing Zone Hotspots — Interactive and Highlighted when Selected */}
-      {layerPFZ &&
-        advisories &&
-        (mapFocusTarget?.scope === 'NATIONAL' || mapFocusTarget?.layer === 'PFZ' || mapFocusTarget?.highlightAll
-          ? advisories
-          : advisories.slice(0, 10)
-        ).map((adv, idx) => {
-          const pLat = Number(adv.pfz_latitude)
-          const pLon = Number(adv.pfz_longitude)
-          if (!pLat || !pLon) return null
-
-          const isTargetHighlighted =
-            mapFocusTarget?.highlightAll ||
-            (Array.isArray(mapFocusTarget?.highlightedPfzIds) &&
-              mapFocusTarget.highlightedPfzIds.includes(adv.advisory_id))
-
-          const isSelected =
-            adv.advisory_id === selectedRouteId ||
-            isTargetHighlighted ||
-            (!selectedRouteId && !mapFocusTarget?.highlightedPfzIds && idx === 0)
-
-          return (
-            <Circle
-              key={adv.advisory_id || idx}
-              center={[pLat, pLon]}
-              radius={isSelected ? 5500 : 4000}
-              pathOptions={{
-                color: isSelected ? '#06b6d4' : '#10b981',
-                fillColor: isSelected ? '#06b6d4' : '#10b981',
-                fillOpacity: isSelected ? 0.6 : 0.28,
-                weight: isSelected ? 3.2 : 1.6,
-              }}
-              eventHandlers={{
-                click: () => {
-                  if (onSelectRoute) onSelectRoute(adv.advisory_id)
-                }
-              }}
-            >
-              <Popup>
-                <div style={{ color: '#0f172a', fontSize: '11.5px', minWidth: '220px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                    <strong style={{ color: isSelected ? '#0284c7' : '#059669', fontSize: '12px' }}>
-                      PFZ-{adv.advisory_id?.slice(-4) || 'ZONE'}
-                    </strong>
-                    <span
-                      style={{
-                        fontSize: '9.5px',
-                        fontWeight: 700,
-                        padding: '1px 5px',
-                        borderRadius: '3px',
-                        background: isSelected ? '#0284c718' : '#10b98118',
-                        color: isSelected ? '#0284c7' : '#059669',
-                        border: `1px solid ${isSelected ? '#0284c740' : '#10b98140'}`
-                      }}
-                    >
-                      {isSelected ? 'SELECTED CORRIDOR' : 'CANDIDATE'}
-                    </span>
-                  </div>
-                  <div>Target: <b>{adv.target_species}</b></div>
-                  <div>Bearing: <b>{adv.bearing_compass} ({adv.bearing_deg}°)</b></div>
-                  <div>Distance: <b>{adv.distance_nm} NM ({adv.distance_km} km)</b> · ETA: <b>{calculateETA(adv.distance_nm)}</b></div>
-                  <div>SST: <b>{adv.sst_celsius}°C</b> · Depth: <b>{adv.depth_contour_m}m</b></div>
-                  <div>Gear: <em>{adv.recommended_gear}</em></div>
-                  <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
-                    <button
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 700,
-                        padding: '4px 10px',
-                        borderRadius: '4px',
-                        background: isSelected ? '#0284c7' : '#0f172a',
-                        color: '#ffffff',
-                        border: 'none',
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => {
-                        if (onSelectRoute) onSelectRoute(adv.advisory_id)
-                      }}
-                    >
-                      {isSelected ? 'Corridor Active' : 'Select This Route'}
-                    </button>
-                  </div>
-                </div>
-              </Popup>
-            </Circle>
-          )
-        })}
-
-      {/* 4. Restricted Marine Protected Areas */}
+      {/* 3. Restricted Marine Protected Areas (Contextual or Target Layer) */}
       {layerMPA &&
         restrictedZones &&
         restrictedZones.map((zone) => {
@@ -526,13 +439,17 @@ function MapLayers({
           const zLon = Number(zone.longitude)
           if (!zLat || !zLon) return null
 
+          const isTargetLayer = mapFocusTarget?.layer === 'RESTRICTED_ZONES'
           const isHighlighted =
-            (Array.isArray(mapFocusTarget?.highlightedZoneIds) &&
+            isTargetLayer &&
+            ((Array.isArray(mapFocusTarget?.highlightedZoneIds) &&
               mapFocusTarget.highlightedZoneIds.includes(zone.zone_id)) ||
-            (mapFocusTarget?.layer === 'RESTRICTED_ZONES' &&
-              mapFocusTarget?.scopeName &&
-              (zone.state?.toLowerCase().includes(mapFocusTarget.scopeName.toLowerCase()) ||
-                zone.zone_name?.toLowerCase().includes(mapFocusTarget.scopeName.toLowerCase())))
+              (mapFocusTarget?.scopeName &&
+                (zone.state?.toLowerCase().includes(mapFocusTarget.scopeName.toLowerCase()) ||
+                  zone.zone_name?.toLowerCase().includes(mapFocusTarget.scopeName.toLowerCase()))))
+
+          const isPFZActive = mapFocusTarget?.layer === 'PFZ'
+          const isGiantBan = Number(zone.area_km2 || 0) > 20000
 
           return (
             <Circle
@@ -540,15 +457,16 @@ function MapLayers({
               center={[zLat, zLon]}
               radius={Math.sqrt(Number(zone.area_km2 || 100)) * (isHighlighted ? 1200 : 1000)}
               pathOptions={{
-                color: isHighlighted ? '#e11d48' : '#f43f5e',
-                fillColor: isHighlighted ? '#e11d48' : '#f43f5e',
-                fillOpacity: isHighlighted ? 0.42 : 0.18,
+                color: isHighlighted ? '#e11d48' : (isPFZActive ? '#f43f5e55' : '#f43f5e'),
+                fillColor: isHighlighted ? '#e11d48' : (isPFZActive ? '#f43f5e22' : '#f43f5e'),
+                fillOpacity: isHighlighted ? 0.42 : (isPFZActive ? 0.04 : 0.16),
                 dashArray: isHighlighted ? '3, 3' : '5, 5',
-                weight: isHighlighted ? 3.5 : 2,
+                weight: isHighlighted ? 3.5 : (isPFZActive ? 1 : 1.8),
               }}
+              interactive={!isPFZActive || !isGiantBan}
             >
               <Tooltip sticky direction="bottom">
-                <span style={{ color: '#be123c', fontWeight: 700 }}>
+                <span style={{ color: isHighlighted ? '#be123c' : '#9f1239', fontWeight: 700 }}>
                   {isHighlighted ? 'TARGET RESTRICTED: ' : 'Restricted: '}
                   {zone.zone_name}
                 </span>
@@ -567,6 +485,129 @@ function MapLayers({
                 </div>
               </Popup>
             </Circle>
+          )
+        })}
+
+      {/* 4. PFZ Potential Fishing Zone Hotspots — Interactive and Highlighted on Top of Contextual Layers */}
+      {layerPFZ &&
+        advisories &&
+        (mapFocusTarget?.scope === 'NATIONAL' || mapFocusTarget?.layer === 'PFZ' || mapFocusTarget?.highlightAll
+          ? advisories
+          : advisories.slice(0, 10)
+        ).map((adv, idx) => {
+          const pLat = Number(adv.pfz_latitude ?? adv.latitude ?? adv.lat)
+          const pLon = Number(adv.pfz_longitude ?? adv.longitude ?? adv.lon)
+          if (!pLat || !pLon || isNaN(pLat) || isNaN(pLon)) return null
+
+          const advId = String(adv.advisory_id || adv.advisoryId || adv.id || `pfz-${idx}`)
+          const isTargetLayer = mapFocusTarget?.layer === 'PFZ'
+          const isTargetHighlighted =
+            isTargetLayer &&
+            (mapFocusTarget?.highlightAll ||
+              mapFocusTarget?.scope === 'NATIONAL' ||
+              (Array.isArray(mapFocusTarget?.highlightedPfzIds) &&
+                (mapFocusTarget.highlightedPfzIds.includes(advId) ||
+                  mapFocusTarget.highlightedPfzIds.includes(adv.advisory_id) ||
+                  mapFocusTarget.highlightedPfzIds.includes(adv.advisoryId) ||
+                  mapFocusTarget.highlightedPfzIds.includes(adv.id))))
+
+          const isSelected =
+            advId === selectedRouteId ||
+            adv.advisory_id === selectedRouteId ||
+            isTargetHighlighted ||
+            (!selectedRouteId && !mapFocusTarget?.highlightedPfzIds && idx === 0 && !isTargetLayer)
+
+          const targetSpecies = adv.target_species || adv.targetSpecies || 'Commercial Pelagic Species'
+          const bearingCompass = adv.bearing_compass || adv.bearingCompass || 'Offshore'
+          const bearingDeg = adv.bearing_deg ?? adv.bearingDeg ?? 0
+          const distKm = adv.distance_km ?? adv.distanceKm
+          const distNm = adv.distance_nm ?? adv.distanceNm ?? (distKm ? +(distKm / 1.852).toFixed(1) : null)
+          const sstVal = adv.sst_celsius ?? adv.sst
+          const depthVal = adv.depth_contour_m ?? adv.depth
+          const gearVal = adv.recommended_gear || adv.gear || 'Gillnet / Trawl'
+          const refHarbor = adv.reference_harbor || adv.referenceHarbor || adv.landing_center_name || adv.state || 'Advisory Base'
+
+          return (
+            <CircleMarker
+              key={advId}
+              center={[pLat, pLon]}
+              radius={isTargetHighlighted ? 8 : (isSelected ? 7 : 5)}
+              pathOptions={{
+                color: isTargetHighlighted ? '#06b6d4' : (isSelected ? '#0284c7' : '#10b981'),
+                fillColor: isTargetHighlighted ? '#22d3ee' : (isSelected ? '#38bdf8' : '#34d399'),
+                fillOpacity: isTargetHighlighted ? 0.95 : (isSelected ? 0.85 : 0.65),
+                weight: isTargetHighlighted ? 2.5 : 1.5,
+              }}
+              eventHandlers={{
+                click: () => {
+                  if (onSelectRoute) onSelectRoute(advId)
+                }
+              }}
+            >
+              <Tooltip sticky direction="top">
+                <div style={{ fontWeight: 700, color: '#0284c7', fontSize: '11px' }}>
+                  <span style={{ color: '#059669', marginRight: '4px' }}>[PFZ]</span>
+                  {targetSpecies}
+                  <div style={{ fontWeight: 500, color: '#475569', fontSize: '10px' }}>
+                    {distNm ? `${distNm} NM (${distKm} km)` : (distKm ? `${distKm} km` : 'Active ground')} · {refHarbor}
+                  </div>
+                </div>
+              </Tooltip>
+              <Popup>
+                <div style={{ color: '#0f172a', fontSize: '11.5px', minWidth: '230px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <strong style={{ color: isSelected ? '#0284c7' : '#059669', fontSize: '12px' }}>
+                      PFZ-{advId.slice(-4)}
+                    </strong>
+                    <span
+                      style={{
+                        fontSize: '9.5px',
+                        fontWeight: 700,
+                        padding: '1px 5px',
+                        borderRadius: '3px',
+                        background: isSelected ? '#0284c718' : '#10b98118',
+                        color: isSelected ? '#0284c7' : '#059669',
+                        border: `1px solid ${isSelected ? '#0284c740' : '#10b98140'}`
+                      }}
+                    >
+                      {isSelected ? 'SELECTED CORRIDOR' : 'POTENTIAL FISHING ZONE'}
+                    </span>
+                  </div>
+                  <div>Target Species: <b>{targetSpecies}</b></div>
+                  <div>Reference Harbor: <b>{refHarbor}</b> ({adv.state || 'India'})</div>
+                  {bearingCompass && <div>Bearing: <b>{bearingCompass} ({bearingDeg}°)</b></div>}
+                  {distKm != null && (
+                    <div>Distance: <b>{distNm != null ? `${distNm} NM ` : ''}({distKm} km)</b> · ETA: <b>{calculateETA(distNm || distKm / 1.852)}</b></div>
+                  )}
+                  <div>SST: <b>{sstVal != null ? `${sstVal}°C` : 'N/A'}</b> · Depth: <b>{depthVal != null ? `${depthVal}m` : 'N/A'}</b></div>
+                  <div>Recommended Gear: <em>{gearVal}</em></div>
+                  {adv.bulletin && (
+                    <p style={{ marginTop: '5px', fontSize: '10px', color: '#64748b', lineHeight: 1.3 }}>
+                      {adv.bulletin}
+                    </p>
+                  )}
+                  <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button
+                      style={{
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        background: isSelected ? '#0284c7' : '#0f172a',
+                        color: '#ffffff',
+                        border: 'none',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => {
+                        if (onSelectRoute) onSelectRoute(advId)
+                      }}
+                    >
+                      {isSelected ? 'Corridor Active' : 'Select This Route'}
+                    </button>
+                  </div>
+                </div>
+              </Popup>
+            </CircleMarker>
           )
         })}
 
