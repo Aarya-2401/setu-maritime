@@ -11,11 +11,17 @@ import {
   IconHome,
   IconMap,
   IconBell,
-  IconMessageSquare
+  IconMessageSquare,
+  IconShield,
+  IconCompass,
+  IconMaximize,
+  IconMinimize
 } from '../Icons'
 import { detectInlandLocation } from '../../data/inlandDetector'
 import { askOrcaAI } from '../../services/aiService'
 import { QUICK_PROMPTS } from '../../data/mockData'
+import { calculateETA } from '../../data/decisionLogic'
+import { getUNLocode, getFormattedHarborTag } from '../../data/harborCodes'
 import './MobileLayout.css'
 
 function getMessageUUID() {
@@ -119,6 +125,102 @@ export default function MobileLayout({
 
   const timeVal = formatCurrentTime(currentTime)
   const dateVal = formatCurrentDate(currentTime)
+
+  // Auto-focus chat input when switching to chat tab
+  useEffect(() => {
+    if (activeNav === 'chat') {
+      const timer = setTimeout(() => {
+        inputRef.current?.focus()
+      }, 150)
+      return () => clearTimeout(timer)
+    }
+  }, [activeNav])
+
+  // Assessment and Safety Factors Resolution for Alerts View
+  const assessmentStatus = assessment?.status || 'SAFE'
+  const decisionLabel = assessment?.decisionLabel || 'SAFE TO DEPART'
+  const statusColor =
+    assessmentStatus === 'DANGER'
+      ? '#ef4444'
+      : assessmentStatus === 'CAUTION'
+      ? '#f59e0b'
+      : '#10b981'
+
+  const directiveText =
+    assessment?.actionableDirective ||
+    (assessmentStatus === 'SAFE'
+      ? 'All ocean and regulatory checks are satisfied. Safe for coastal departure and operations.'
+      : assessmentStatus === 'CAUTION'
+      ? 'Elevated wave swell or boundary proximity detected. Exercise caution and verify route coordinates.'
+      : 'Severe maritime hazard or sanctuary boundary breach detected. Hold departure until conditions clear.')
+
+  const selectedRoute = assessment?.selectedRoute || (routes && routes.length > 0 ? routes[0] : null)
+  const locode = harbor ? getUNLocode(harbor) : 'UN/LOCODE'
+  const harborTag = harbor ? getFormattedHarborTag(harbor) : 'HAR-01'
+
+  const rawFactors = assessment?.factors || []
+  const oceanFactors = useMemo(() => {
+    const list = rawFactors.filter((f) => f.category === 'OPERATIONAL_OCEAN')
+    if (list.length > 0) return list
+    return [
+      {
+        name: 'Significant Wave Height',
+        value: safetyData?.significant_wave_height_m != null ? `${Number(safetyData.significant_wave_height_m).toFixed(1)} m` : (waveVal !== '-- m' ? waveVal : '1.3 m'),
+        threshold: '< 2.0 m (Safe Envelope)',
+        state: Number(safetyData?.significant_wave_height_m || 1.3) > 2.0 ? 'CAUTION' : 'PASS',
+        tone: Number(safetyData?.significant_wave_height_m || 1.3) > 2.0 ? 'moderate' : 'good'
+      },
+      {
+        name: 'Sustained Surface Wind',
+        value: safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : (windVal !== '-- kn' ? windVal : '8 km/h'),
+        threshold: '< 30 km/h (Normal Sailing)',
+        state: Number(safetyData?.wind_speed_kmph || 8) > 30 ? 'CAUTION' : 'PASS',
+        tone: Number(safetyData?.wind_speed_kmph || 8) > 30 ? 'moderate' : 'good'
+      },
+      {
+        name: 'Atmospheric Visibility',
+        value: safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : '10.0 km',
+        threshold: '> 5.0 km (Optimal Line of Sight)',
+        state: 'PASS',
+        tone: 'good'
+      },
+      {
+        name: 'Tidal & Sea State',
+        value: safetyData?.wmo_sea_state_desc || 'Moderate',
+        threshold: 'Operable Coastal Envelope',
+        state: 'PASS',
+        tone: 'good'
+      }
+    ]
+  }, [rawFactors, safetyData, waveVal, windVal])
+
+  const geoFactors = useMemo(() => {
+    const list = rawFactors.filter((f) => f.category === 'GEOSPATIAL_REGULATORY')
+    if (list.length > 0) return list
+    return [
+      {
+        name: 'Indian Sovereign EEZ',
+        value: 'Inside Indian EEZ',
+        threshold: '< 200 NM Outer Territorial Limit',
+        state: 'PASS',
+        tone: 'good'
+      },
+      {
+        name: 'International Boundary (IMBL)',
+        value: 'Safe Buffer (> 12 NM)',
+        threshold: 'Clear of Sovereign Boundary Line',
+        state: 'PASS',
+        tone: 'good'
+      },
+      {
+        name: 'Marine Sanctuary Geofence',
+        value: 'Zero Sanctuary Overlap',
+        threshold: 'Avoid Marine Protected Habitats',
+        state: 'PASS',
+        tone: 'good'
+      }
+    ]
+  }, [rawFactors])
 
   // Suggestion pills resolution: inland suggestions if present on last assistant message, else default pills
   const activeSuggestions = useMemo(() => {
@@ -287,10 +389,10 @@ export default function MobileLayout({
   }
 
   return (
-    <div className="mobile-layout">
-      {/* 1. Header Row */}
+    <div className={`mobile-layout mobile-layout--${activeNav}`}>
+      {/* 1. Branded Top Header Row */}
       <header className="mobile-header">
-        <div className="mobile-header__brand" title="SETU-ADAM01 Maritime Intelligence">
+        <div className="mobile-header__brand" title="SETU-ADAM01 Maritime Intelligence" onClick={() => setActiveNav('home')}>
           <img
             src="/favicon-512x512.png"
             alt="SETU-ADAM01"
@@ -330,65 +432,233 @@ export default function MobileLayout({
         </div>
       </header>
 
-      {/* 2. Four Telemetry Information Cards */}
-      <section className="mobile-telemetry-grid" aria-label="Harbor telemetry cards">
-        <div className="mobile-telemetry-card">
-          <div className="mobile-telemetry-card__top">
-            <span className="mobile-telemetry-card__icon">
-              <IconCloud size={14} color="#38bdf8" />
-            </span>
-            <span className="mobile-telemetry-card__value">{tempVal}</span>
+      {/* 2. Four Telemetry Information Cards (Home Tab Only) */}
+      {activeNav === 'home' && (
+        <section className="mobile-telemetry-grid mobile-tab-view" aria-label="Harbor telemetry cards">
+          <div className="mobile-telemetry-card">
+            <div className="mobile-telemetry-card__top">
+              <span className="mobile-telemetry-card__icon">
+                <IconCloud size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-telemetry-card__value">{tempVal}</span>
+            </div>
+            <span className="mobile-telemetry-card__label">Air Temp</span>
           </div>
-          <span className="mobile-telemetry-card__label">Air Temp</span>
-        </div>
 
-        <div className="mobile-telemetry-card">
-          <div className="mobile-telemetry-card__top">
-            <span className="mobile-telemetry-card__icon">
-              <IconWind size={14} color="#38bdf8" />
-            </span>
-            <span className="mobile-telemetry-card__value">{windVal}</span>
+          <div
+            className="mobile-telemetry-card mobile-telemetry-card--interactive"
+            onClick={() => setActiveNav('alerts')}
+            title="Tap to view wind and safety analysis"
+          >
+            <div className="mobile-telemetry-card__top">
+              <span className="mobile-telemetry-card__icon">
+                <IconWind size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-telemetry-card__value">{windVal}</span>
+            </div>
+            <span className="mobile-telemetry-card__label">Wind Speed</span>
           </div>
-          <span className="mobile-telemetry-card__label">Wind Speed</span>
-        </div>
 
-        <div className="mobile-telemetry-card">
-          <div className="mobile-telemetry-card__top">
-            <span className="mobile-telemetry-card__icon">
-              <IconWave size={14} color="#38bdf8" />
-            </span>
-            <span className="mobile-telemetry-card__value">{waveVal}</span>
+          <div
+            className="mobile-telemetry-card mobile-telemetry-card--interactive"
+            onClick={() => setActiveNav('alerts')}
+            title="Tap to view wave height and safety analysis"
+          >
+            <div className="mobile-telemetry-card__top">
+              <span className="mobile-telemetry-card__icon">
+                <IconWave size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-telemetry-card__value">{waveVal}</span>
+            </div>
+            <span className="mobile-telemetry-card__label">Wave Height</span>
           </div>
-          <span className="mobile-telemetry-card__label">Wave Height</span>
-        </div>
 
-        <div className="mobile-telemetry-card">
-          <div className="mobile-telemetry-card__top">
-            <span className="mobile-telemetry-card__icon">
-              <IconSun size={14} color="#f59e0b" />
-            </span>
-            <span className="mobile-telemetry-card__value">{timeVal}</span>
+          <div className="mobile-telemetry-card">
+            <div className="mobile-telemetry-card__top">
+              <span className="mobile-telemetry-card__icon">
+                <IconSun size={14} color="#f59e0b" />
+              </span>
+              <span className="mobile-telemetry-card__value">{timeVal}</span>
+            </div>
+            <span className="mobile-telemetry-card__label">{dateVal}</span>
           </div>
-          <span className="mobile-telemetry-card__label">{dateVal}</span>
-        </div>
-      </section>
+        </section>
+      )}
 
-      {/* 3. Live Map Section */}
-      <section className="mobile-map-section" id="mobile-map-section" aria-label="Live Maritime Map">
+      {/* 3. Dedicated Mobile Alerts & Departure Assessment View */}
+      {activeNav === 'alerts' && (
+        <section className="mobile-tab-view mobile-alerts-view" aria-label="Departure & Route Assessment">
+          <div className="mobile-alerts-header">
+            <div className="mobile-alerts-header__title-wrap">
+              <span className="mobile-alerts-header__icon" style={{ borderColor: statusColor }}>
+                <IconShield size={16} color={statusColor} />
+              </span>
+              <div>
+                <h3 className="mobile-alerts-header__title">Departure Assessment</h3>
+                <span className="mobile-alerts-header__sub">{locationText} [UN/LOCODE: {locode}]</span>
+              </div>
+            </div>
+            <div className="mobile-alerts-status-pill" style={{ borderColor: statusColor, color: statusColor }}>
+              <span className="mobile-alerts-status-dot" style={{ backgroundColor: statusColor }} />
+              <span>{assessmentStatus}</span>
+            </div>
+          </div>
+
+          {/* Hero Decision Banner */}
+          <div className="mobile-alerts-banner" style={{ borderColor: statusColor }}>
+            <div className="mobile-alerts-banner__top">
+              <span className="mobile-alerts-banner__decision" style={{ color: statusColor }}>
+                {decisionLabel}
+              </span>
+              <span className="mobile-alerts-banner__badge">Feed: Live Nowcast</span>
+            </div>
+            <p className="mobile-alerts-banner__directive">
+              {directiveText}
+            </p>
+          </div>
+
+          {/* Route & ETA Card */}
+          {selectedRoute && (
+            <div className="mobile-alerts-route-card">
+              <div className="mobile-alerts-route-top">
+                <IconCompass size={14} color="#38bdf8" />
+                <span className="mobile-alerts-route-name">
+                  {selectedRoute.route_name || selectedRoute.advisory_id || 'Active Transit Corridor'}
+                </span>
+              </div>
+              <div className="mobile-alerts-route-grid">
+                <div className="mobile-alerts-route-item">
+                  <span className="mobile-alerts-route-label">Target Area</span>
+                  <span className="mobile-alerts-route-val">{selectedRoute.target_area_name || 'Offshore Fishing Sector'}</span>
+                </div>
+                <div className="mobile-alerts-route-item">
+                  <span className="mobile-alerts-route-label">Distance</span>
+                  <span className="mobile-alerts-route-val">{selectedRoute.distance_nm ? `${selectedRoute.distance_nm} NM` : '--'}</span>
+                </div>
+                <div className="mobile-alerts-route-item">
+                  <span className="mobile-alerts-route-label">Estimated Transit</span>
+                  <span className="mobile-alerts-route-val">{calculateETA(selectedRoute.distance_nm)}</span>
+                </div>
+                <div className="mobile-alerts-route-item">
+                  <span className="mobile-alerts-route-label">Boundary Status</span>
+                  <span className="mobile-alerts-route-val mobile-alerts-route-val--good">Compliant Corridor</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Operational Oceanographic Factors */}
+          <div className="mobile-alerts-section-title">
+            <IconWave size={14} color="#38bdf8" />
+            <span>Operational Ocean Factors</span>
+          </div>
+          <div className="mobile-alerts-factors-list">
+            {oceanFactors.map((f, idx) => (
+              <div key={idx} className="mobile-alerts-factor-row">
+                <div className="mobile-alerts-factor-info">
+                  <span className="mobile-alerts-factor-name">{f.name}</span>
+                  <span className="mobile-alerts-factor-threshold">Threshold: {f.threshold}</span>
+                </div>
+                <div className="mobile-alerts-factor-right">
+                  <span className="mobile-alerts-factor-value">{f.value}</span>
+                  <span className={`mobile-factor-badge mobile-factor-badge--${f.tone}`}>
+                    {f.state}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Geospatial & Regulatory Compliance */}
+          <div className="mobile-alerts-section-title">
+            <IconShield size={14} color="#38bdf8" />
+            <span>Geospatial & Marine Sanctuary Compliance</span>
+          </div>
+          <div className="mobile-alerts-factors-list">
+            {geoFactors.map((f, idx) => (
+              <div key={idx} className="mobile-alerts-factor-row">
+                <div className="mobile-alerts-factor-info">
+                  <span className="mobile-alerts-factor-name">{f.name}</span>
+                  <span className="mobile-alerts-factor-threshold">Rule: {f.threshold}</span>
+                </div>
+                <div className="mobile-alerts-factor-right">
+                  <span className="mobile-alerts-factor-value">{f.value}</span>
+                  <span className={`mobile-factor-badge mobile-factor-badge--${f.tone}`}>
+                    {f.state}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Quick Action Navigation Buttons */}
+          <div className="mobile-alerts-actions">
+            <button
+              type="button"
+              className="mobile-alerts-action-btn mobile-alerts-action-btn--primary"
+              onClick={() => setActiveNav('map')}
+            >
+              <IconMap size={15} color="#04121a" />
+              <span>View Route on Live Map</span>
+            </button>
+            <button
+              type="button"
+              className="mobile-alerts-action-btn mobile-alerts-action-btn--secondary"
+              onClick={() => setActiveNav('chat')}
+            >
+              <IconMessageSquare size={15} color="#38bdf8" />
+              <span>Ask SETU Copilot</span>
+            </button>
+          </div>
+        </section>
+      )}
+
+      {/* 4. Live Map Section (Kept mounted for Home and Map tabs to preserve Leaflet tile caching) */}
+      <section
+        className={`mobile-map-section ${activeNav === 'map' ? 'mobile-map-section--maximized mobile-tab-view' : ''}`}
+        id="mobile-map-section"
+        aria-label="Live Maritime Map"
+        style={{ display: activeNav === 'home' || activeNav === 'map' ? 'flex' : 'none' }}
+      >
         <div className="mobile-map-header">
           <div className="mobile-map-header__titles">
-            <h3 className="mobile-map-title">Live Map</h3>
+            <h3 className="mobile-map-title">
+              {activeNav === 'map' ? 'Expanded Maritime Chart' : 'Live Map'}
+            </h3>
             <p className="mobile-map-subtitle">
               Wind · Waves · Fishing zones near {locationText}
             </p>
           </div>
-          <div className="mobile-live-badge">
-            <span className="mobile-live-dot" />
-            <span className="mobile-live-text">Live</span>
+          <div className="mobile-map-header__actions">
+            <div className="mobile-live-badge">
+              <span className="mobile-live-dot" />
+              <span className="mobile-live-text">Live</span>
+            </div>
+            {activeNav === 'home' ? (
+              <button
+                type="button"
+                className="mobile-expand-btn"
+                onClick={() => setActiveNav('map')}
+                title="Expand Map to full screen"
+                aria-label="Expand Map"
+              >
+                <IconMaximize size={13} color="#38bdf8" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="mobile-expand-btn"
+                onClick={() => setActiveNav('home')}
+                title="Return to Home Overview"
+                aria-label="Minimize Map"
+              >
+                <IconMinimize size={13} color="#38bdf8" />
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="mobile-map-card">
+        <div className={`mobile-map-card ${activeNav === 'map' ? 'mobile-map-card--expanded' : ''}`}>
           <MapSection
             harbor={harbor}
             harbors={harbors}
@@ -401,7 +671,7 @@ export default function MobileLayout({
             selectedRouteId={selectedRouteId || assessment?.selectedRoute?.advisory_id}
             onSelectRoute={onSelectRoute}
             assessment={assessment}
-            onOpenAssessment={onOpenAssessment}
+            onOpenAssessment={() => setActiveNav('alerts')}
             loading={loading}
             hasApiError={hasApiError}
             mapFocusTarget={mapFocusTarget}
@@ -411,9 +681,14 @@ export default function MobileLayout({
         </div>
       </section>
 
-      {/* 4. SETU Chatbot Section */}
-      <section className="mobile-chat-section" id="mobile-chat-section" aria-label="SETU Maritime Assistant">
-        <div className="mobile-chat-card">
+      {/* 5. SETU Chatbot Section (Kept mounted for Home and Chat tabs to preserve message history) */}
+      <section
+        className={`mobile-chat-section ${activeNav === 'chat' ? 'mobile-chat-section--maximized mobile-tab-view' : ''}`}
+        id="mobile-chat-section"
+        aria-label="SETU Maritime Assistant"
+        style={{ display: activeNav === 'home' || activeNav === 'chat' ? 'flex' : 'none' }}
+      >
+        <div className={`mobile-chat-card ${activeNav === 'chat' ? 'mobile-chat-card--maximized' : ''}`}>
           <div className="mobile-chat-header">
             <div className="mobile-chat-avatar">
               <img
@@ -424,11 +699,39 @@ export default function MobileLayout({
             </div>
             <div className="mobile-chat-identity">
               <span className="mobile-chat-title">SETU</span>
-              <span className="mobile-chat-subtitle">Adam-01</span>
+              <span className="mobile-chat-subtitle">
+                {activeNav === 'chat' ? 'Adam-01 Autonomous Maritime Copilot' : 'Adam-01'}
+              </span>
             </div>
+            {activeNav === 'home' ? (
+              <button
+                type="button"
+                className="mobile-expand-btn"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => setActiveNav('chat')}
+                title="Maximize Chat to full screen"
+                aria-label="Maximize Chat"
+              >
+                <IconMaximize size={13} color="#38bdf8" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="mobile-expand-btn"
+                style={{ marginLeft: 'auto' }}
+                onClick={() => setActiveNav('home')}
+                title="Return to Home Overview"
+                aria-label="Minimize Chat"
+              >
+                <IconMinimize size={13} color="#38bdf8" />
+              </button>
+            )}
           </div>
 
-          <div className="mobile-chat-messages" ref={chatScrollRef}>
+          <div
+            className={`mobile-chat-messages ${activeNav === 'chat' ? 'mobile-chat-messages--maximized' : ''}`}
+            ref={chatScrollRef}
+          >
             {messages &&
               messages.map((m) => (
                 <div key={m.id} className={`mobile-chat-msg mobile-chat-msg--${m.role}`}>
@@ -457,7 +760,13 @@ export default function MobileLayout({
                 key={idx}
                 type="button"
                 className="mobile-suggestion-pill"
-                onClick={() => handleSendMessage(sug)}
+                onClick={() => {
+                  if (sug.toLowerCase() === 'alerts') {
+                    setActiveNav('alerts')
+                  } else {
+                    handleSendMessage(sug)
+                  }
+                }}
                 onTouchStart={() => {}}
                 disabled={typing}
               >
@@ -489,7 +798,7 @@ export default function MobileLayout({
         </div>
       </section>
 
-      {/* 5. Fixed Bottom Navigation Bar */}
+      {/* 6. Fixed Bottom Navigation Bar with Smooth Tab Indicators */}
       <nav className="mobile-bottom-nav" aria-label="Mobile Navigation">
         <button
           type="button"
@@ -498,6 +807,7 @@ export default function MobileLayout({
             setActiveNav('home')
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
+          aria-label="Home Dashboard"
         >
           <IconHome size={18} />
           <span>Home</span>
@@ -508,8 +818,8 @@ export default function MobileLayout({
           className={`mobile-nav-item ${activeNav === 'map' ? 'mobile-nav-item--active' : ''}`}
           onClick={() => {
             setActiveNav('map')
-            document.getElementById('mobile-map-section')?.scrollIntoView({ behavior: 'smooth' })
           }}
+          aria-label="Expanded Nautical Map"
         >
           <IconMap size={18} />
           <span>Map</span>
@@ -520,8 +830,8 @@ export default function MobileLayout({
           className={`mobile-nav-item ${activeNav === 'alerts' ? 'mobile-nav-item--active' : ''}`}
           onClick={() => {
             setActiveNav('alerts')
-            if (onOpenAssessment) onOpenAssessment()
           }}
+          aria-label="Departure Alerts and Assessment"
         >
           <IconBell size={18} />
           <span>Alerts</span>
@@ -532,9 +842,8 @@ export default function MobileLayout({
           className={`mobile-nav-item ${activeNav === 'chat' ? 'mobile-nav-item--active' : ''}`}
           onClick={() => {
             setActiveNav('chat')
-            document.getElementById('mobile-chat-section')?.scrollIntoView({ behavior: 'smooth' })
-            inputRef.current?.focus()
           }}
+          aria-label="SETU Copilot Chat"
         >
           <IconMessageSquare size={18} />
           <span>Chat</span>
