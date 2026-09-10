@@ -618,7 +618,6 @@ export default function MobileLayout({
         className={`mobile-map-section ${activeNav === 'map' ? 'mobile-map-section--maximized mobile-tab-view' : ''}`}
         id="mobile-map-section"
         aria-label="Live Maritime Map"
-        style={{ display: activeNav === 'home' || activeNav === 'map' ? 'flex' : 'none' }}
       >
         <div className="mobile-map-header">
           <div className="mobile-map-header__titles">
@@ -686,7 +685,6 @@ export default function MobileLayout({
         className={`mobile-chat-section ${activeNav === 'chat' ? 'mobile-chat-section--maximized mobile-tab-view' : ''}`}
         id="mobile-chat-section"
         aria-label="SETU Maritime Assistant"
-        style={{ display: activeNav === 'home' || activeNav === 'chat' ? 'flex' : 'none' }}
       >
         <div className={`mobile-chat-card ${activeNav === 'chat' ? 'mobile-chat-card--maximized' : ''}`}>
           <div className="mobile-chat-header">
