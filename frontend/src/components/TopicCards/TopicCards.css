@@ -11,12 +11,13 @@
   background: var(--bg-panel);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 10px 12px 8px;
+  padding: 9px 12px 7px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 6px;
-  height: 130px;
+  gap: 5px;
+  min-height: 138px;
+  height: 138px;
   box-sizing: border-box;
   backdrop-filter: blur(12px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
@@ -72,14 +73,14 @@
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 4px;
+  gap: 3px;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .topic-card__footer {
   border-top: 1px solid var(--border-soft);
-  padding-top: 4px;
+  padding-top: 3px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -273,7 +274,7 @@
 .waves-card__pill--neutral { color: var(--text-secondary); background: var(--bg-card); }
 
 .waves-card__chart {
-  height: 24px;
+  height: 22px;
 }
 
 .waves-card__chart-empty {
@@ -283,7 +284,13 @@
 
 .waves-card__period {
   font-size: 10px;
+  line-height: 1.25;
   color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  padding-bottom: 1px;
 }
 
 /* Tide Card Specifics */
