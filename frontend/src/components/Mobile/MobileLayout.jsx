@@ -15,15 +15,8 @@ import {
 } from '../Icons'
 import { detectInlandLocation } from '../../data/inlandDetector'
 import { askOrcaAI } from '../../services/aiService'
+import { QUICK_PROMPTS } from '../../data/mockData'
 import './MobileLayout.css'
-
-const DEFAULT_SUGGESTIONS = [
-  'Fish near Kerala tomorrow',
-  'Nearest PFZ',
-  'Tide now',
-  'Weather tomorrow',
-  'Alerts'
-]
 
 function getMessageUUID() {
   return typeof crypto !== 'undefined' && crypto.randomUUID
@@ -135,7 +128,7 @@ export default function MobileLayout({
         return lastMsg.suggestions
       }
     }
-    return DEFAULT_SUGGESTIONS
+    return QUICK_PROMPTS
   }, [messages])
 
   // Unified message sender for both typed input and suggestion pills
