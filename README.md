@@ -260,11 +260,27 @@ Update Metric Cards & Recenter Map                  Preserve map coordinates
                                                     56 coastal landing harbors
 ```
 
-### 2. Deterministic SQL Grounding over Generative Hallucination
+### 2. Coordinator AI Dynamic Component Manipulation & Live Inland Adaptation
+
+The LangGraph coordinator agent actively manipulates the client dashboard components based on user intent and geospatial context:
+- **Component Manipulation**: Automatically switches the active harbor dropdown, centers the bathymetric radar map coordinates, and adjusts geofence HUD alerts when a specific harbor or coastal district is discussed.
+- **Inland Geolocation Mode**: Integrated automatic browser geolocation with OpenStreetMap Nominatim reverse geocoding and live Open-Meteo atmospheric metrics (`fetchLiveWeather`).
+- **Adaptive Telemetry Grids**: Automatically hides marine-specific Wave and Tide gauges when operating in an inland terrestrial position, replacing marine hazard warnings with a clean terrestrial operational profile and clear gateway hub referencing.
+- **Session Persistence**: Caches user-detected or chosen position in `localStorage` (`setu_user_location`) to immediately hydrate live weather and radar focus across page reloads without defaulting back to Gujarat.
+
+### 3. Responsive Dual-Composition & Intentional Copilot UX
+
+Rather than simply shrinking the desktop dashboard into mobile viewports, the platform implements distinct, intentional responsive compositions sharing a unified maritime design language:
+- **Desktop (>= 768px)**: 100vh executive geospatial cockpit featuring a multi-layer bathymetric radar canvas, 4 live telemetry cards, departure clearance pill, and docked conversational Copilot side panel.
+- **Mobile (< 768px)**: A touch-first ergonomics architecture featuring an inline, de-duplicated header, 4-capsule telemetry strip (condensing to 2 capsules when inland), departure assessment pill, radar map, and an expandable Copilot workspace with 4-tab bottom navigation (Home, Map, Alerts, Chat).
+- **Calm Empty-State Architecture**: Features a structured `MARITIME COPILOT` hierarchy with standing-by status, active harbor context, and decision-oriented prompt rows (`Is it safe to depart?`, `Recommended route`, `Nearest PFZ`, `Weather conditions`, `Tide forecast`, `Active alerts`) with an accessible single-ring input focus treatment.
+- **Default Briefing Control**: Initialized to `AUTO BRIEFING · OFF` by default for a calm first load, while enabling instant manual expansion of the navigation assessment card.
+
+### 4. Deterministic SQL Grounding over Generative Hallucination
 
 Rather than granting the language model unbounded generation rights over safety figures, every agent executes direct, parameterized SQL queries against the Aiven MySQL database. The Google Gemini model acts strictly as an analytical synthesizer, converting factual telemetry rows into structured natural language briefings without altering values for wind speeds, wave heights, or tide levels.
 
-### 3. Cross-Cloud TLS Connection Pool Resilience
+### 5. Cross-Cloud TLS Connection Pool Resilience
 
 Connecting from a serverless/PaaS container environment on Railway to a managed cloud database cluster on Aiven across regions requires robust connection handling. The database abstraction layer incorporates:
 - In-flight SSL/TLS certificate handshakes on port `26291`.
@@ -272,9 +288,9 @@ Connecting from a serverless/PaaS container environment on Railway to a managed 
 - Periodic TCP keep-alive pings every 45 seconds to prevent NAT timeouts and edge gateway drops.
 - Non-blocking server bootstrap allowing graceful degradation if database reconnections occur.
 
-### 4. Zero-Scroll 100vh Tactical HUD Layout
+### 6. Zero-Scroll 100vh Tactical HUD Layout
 
-The React interface enforces a strict `100vh` viewport constraint without page-level scrollbars. The map canvas dynamically recalculates height via CSS Flexbox and Grid, maintaining full visibility of:
+The React interface enforces a strict `100vh` viewport constraint on desktop without page-level scrollbars. The map canvas dynamically recalculates height via CSS Flexbox and Grid, maintaining full visibility of:
 - The top navigation bar with live harbor selector and telemetry pulse.
 - The 4 compact topic cards (Weather, Wind, Waves, Tide) updating reactively.
 - The Leaflet bathymetric radar canvas with smooth camera flights (`flyTo`).
@@ -400,6 +416,7 @@ setu-maritime/
 │   │   ├── components/
 │   │   │   ├── ChatPanel/          SETU-ADAM01 Copilot interface with AI stream
 │   │   │   ├── MapSection/         Leaflet map, translucent glass HUDs, radar lock
+│   │   │   ├── Mobile/             Phone-native multi-tab layout and copilot workspace
 │   │   │   ├── Modal/              AssessmentModal and geofence verification
 │   │   │   ├── Sidebar/            Retractable mission drawer and navigation links
 │   │   │   ├── TopBar/             Executive header with harbor selector
@@ -408,10 +425,12 @@ setu-maritime/
 │   │   ├── data/
 │   │   │   ├── decisionLogic.js    Autonomous safety assessment rule engine
 │   │   │   ├── harborCodes.js      Harbor coordinates and UN/LOCODE reference
+│   │   │   ├── inlandDetector.js   Terrestrial boundary and inland coordinate classifier
+│   │   │   ├── liveWeather.js      Open-Meteo atmospheric API integration
 │   │   │   └── useOrcaAPI.js       SWR cached HTTP fetcher hooks
 │   │   ├── services/
 │   │   │   └── aiService.js        Frontend HTTP bridge to POST /api/v1/ai/chat
-│   │   ├── App.jsx                 Root 100vh zero-scroll layout container
+│   │   ├── App.jsx                 Root responsive layout container with state hydration
 │   │   ├── App.css                 CSS Grid & Flexbox HUD layout constraints
 │   │   └── main.jsx                React virtual DOM mount point
 │   ├── package.json
@@ -547,10 +566,11 @@ The production environment is hosted across three specialized cloud tiers:
 Summary points highlighting key technical accomplishments suitable for engineering resumes and technical interviews:
 
 - **Architected Multi-Agent AI System**: Built an enterprise maritime copilot using LangGraph and Google Gemini, coordinating 10 specialized domain sub-agents (weather, wave dynamics, tidal harmonic curves, cyclone tracking, and spatial zone verification) to deliver verifiable, context-aware operational advisories.
+- **Engineered Agentic Dashboard Manipulation**: Enabled the Coordinator AI to dynamically manipulate client dashboard components—switching active harbor stations, driving Leaflet camera coordinates, and conditionally adapting telemetry layouts based on user intent.
 - **Designed 3NF Relational Database**: Structured a 16-table 3NF schema on Aiven MySQL housing 167,000+ rows of oceanographic and fisheries data, designing 4 pre-joined analytical views that cut dashboard query latency to sub-50ms.
 - **Eliminated Generative Hallucinations**: Implemented a deterministic SQL grounding pipeline where domain agents query relational data before LLM inference, ensuring critical navigational values (wind speeds, wave heights, tidal clearances) are 100% factual.
-- **Solved Geographic Fallback Vulnerabilities**: Engineered a strict tri-state location resolution contract (`SUPPORTED`, `INLAND`, `UNKNOWN`) that completely eliminated silent default fallbacks, preventing dangerous inland-to-coastal misdirection.
-- **Built Real-Time Geospatial HUD**: Developed a zero-scroll 100vh React 18 dashboard incorporating Leaflet radar layers, frosted glass HUD overlays (`backdrop-filter: blur(16px)`), automated camera transitions, and SWR caching for sub-second UI updates.
+- **Solved Geographic Fallback Vulnerabilities**: Engineered a strict tri-state location resolution contract (`SUPPORTED`, `INLAND`, `UNKNOWN`) paired with browser geolocation and OpenStreetMap reverse geocoding, completely eliminating silent default fallbacks.
+- **Crafted Dual-Composition Responsive UX**: Built a unified multi-platform experience featuring a zero-scroll 100vh executive geospatial HUD on desktop and an ergonomics-focused, multi-tab mobile workspace with calm empty-state hierarchy and safe-area touch boundaries.
 - **Engineered Resilient Cloud Infrastructure**: Containerized and deployed backend services to Railway PaaS and frontend assets to Vercel Edge CDN, implementing connection pool resilience with automated TCP keep-alive pingers over cross-cloud TLS connections.
 
 ---
