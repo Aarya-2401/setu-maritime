@@ -81,6 +81,14 @@ function formatCurrentDate(date) {
   return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
+function CheckIcon() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#10b981" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0, marginTop: '2px' }}>
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  )
+}
+
 export default function MobileLayout({
   harbor,
   harbors,
@@ -116,6 +124,7 @@ export default function MobileLayout({
   const [activeModal, setActiveModal] = useState(null)
   const [chatInput, setChatInput] = useState('')
   const [typing, setTyping] = useState(false)
+  const [showCopilotCard, setShowCopilotCard] = useState(false)
   const [currentTime, setCurrentTime] = useState(() => new Date())
   const chatScrollRef = useRef(null)
   const inputRef = useRef(null)
@@ -167,12 +176,8 @@ export default function MobileLayout({
   const pressureVal = safetyData?.surface_pressure_hpa != null ? `${Number(safetyData.surface_pressure_hpa).toFixed(0)} hPa` : '-- hPa'
   const visibilityVal = safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : '-- km'
 
-  const windKnots =
-    safetyData?.wind_speed_kmph != null
-      ? Math.round(Number(safetyData.wind_speed_kmph) * 0.539957)
-      : null
-  const windVal = windKnots != null ? `${windKnots} kn` : '-- kn'
   const windSpeedKmph = safetyData?.wind_speed_kmph != null ? Math.round(safetyData.wind_speed_kmph) : null
+  const windVal = windSpeedKmph != null ? `${windSpeedKmph} km/h` : '--'
   const gustsMps = safetyData?.wind_gust_mps
   const gustsKmph = gustsMps != null ? Math.round(gustsMps * 3.6) : null
   const gustsText = gustsKmph != null ? `${gustsKmph} km/h` : '--'
@@ -239,6 +244,23 @@ export default function MobileLayout({
   const selectedRoute = assessment?.selectedRoute || (routes && routes.length > 0 ? routes[0] : null)
   const locode = harbor ? getUNLocode(harbor) : 'UN/LOCODE'
   const harborTag = harbor ? getFormattedHarborTag(harbor) : 'HAR-01'
+
+  const activePFZ = selectedRoute || (advisories && advisories.length > 0 ? advisories[0] : null)
+  const isCurrentlyInland = isUserLocationActive && assessment?.isUserLocation
+  const hasRecommendation = isCurrentlyInland || Boolean(activePFZ && safetyData)
+  const recommendationState = isCurrentlyInland
+    ? 'INLAND POSITION CLEAR'
+    : assessment?.status === 'SAFE'
+    ? 'ROUTE AUTHORIZED'
+    : assessment?.status === 'CAUTION'
+    ? 'ROUTE CAUTION'
+    : assessment?.status === 'DANGER'
+    ? 'ROUTE RESTRICTED'
+    : hasApiError
+    ? 'DATA UNAVAILABLE'
+    : 'ASSESSMENT PENDING'
+
+  const hasConversation = messages && messages.some((m) => m.role === 'user' || m.role === 'assistant')
 
   const rawFactors = assessment?.factors || []
   const oceanFactors = useMemo(() => {
@@ -506,21 +528,31 @@ export default function MobileLayout({
     <div className={`mobile-layout mobile-layout--${activeNav}`}>
       {/* 1. Branded Top Header Row */}
       <header className="mobile-header">
-        <div className="mobile-header__brand" title="SETU-ADAM01 Maritime Intelligence" onClick={() => setActiveNav('home')}>
+        <div className="mobile-header__brand" title="SETU Maritime Intelligence" onClick={() => setActiveNav('home')}>
           <img
             src="/favicon-512x512.png"
-            alt="SETU-ADAM01"
+            alt="SETU"
             className="mobile-header__logo"
           />
-          <span className="mobile-header__title">SETU-ADAM01</span>
+          <span className="mobile-header__title">SETU</span>
         </div>
 
         <div className="mobile-header__location-pill" title="Tap to select location">
-          <IconLocation size={13} color={isUserLocationActive ? '#10b981' : '#38bdf8'} />
-          <span className="mobile-header__location-text">
-            {isUserLocationActive ? `${locationText} (YOU)` : locationText}
+          <IconLocation size={12} color={isUserLocationActive ? '#10b981' : '#38bdf8'} />
+          <span className="mobile-header__station-tag">
+            {isUserLocationActive
+              ? userLocationTag
+              : harbor
+              ? getFormattedHarborTag(harbor)
+              : 'HAR · --'}
           </span>
-          <IconChevronDown size={10} color="#94a3b8" />
+          <span
+            className="mobile-header__locode-badge"
+            style={isUserLocationActive ? { borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' } : {}}
+          >
+            {isUserLocationActive ? 'YOU' : harbor ? getUNLocode(harbor) : 'UN/LOCODE'}
+          </span>
+          <IconChevronDown size={8} color="#38bdf8" />
 
           {/* Native select overlay for modal-free harbor and user location selection */}
           <select
@@ -560,6 +592,24 @@ export default function MobileLayout({
           </select>
         </div>
       </header>
+
+      {/* 1b. Operational Decision / Safety Clearance Banner (Matches Desktop TopBar) */}
+      {activeNav === 'home' && (
+        <div className="mobile-clearance-wrap">
+          <button
+            type="button"
+            className={`mobile-decision-btn mobile-decision-btn--${assessment?.tone || 'good'}`}
+            onClick={() => setActiveNav('alerts')}
+            title="View Departure & Route Assessment Breakdown"
+          >
+            <span className="mobile-decision-dot" />
+            <span className="mobile-decision-txt">
+              {assessment?.decisionLabel || 'SAFE TO DEPART'}
+            </span>
+            <span className="mobile-decision-cta">WHY?</span>
+          </button>
+        </div>
+      )}
 
       {/* 2. Telemetry Information Capsules (Home Tab Only) */}
       {activeNav === 'home' && (
@@ -857,77 +907,280 @@ export default function MobileLayout({
                 {activeNav === 'chat' ? 'Adam-01 Autonomous Maritime Copilot' : 'Adam-01'}
               </span>
             </div>
-            {activeNav === 'home' ? (
+            <div className="mobile-chat-header__actions" style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
               <button
                 type="button"
-                className="mobile-expand-btn"
-                style={{ marginLeft: 'auto' }}
-                onClick={() => setActiveNav('chat')}
-                title="Maximize Chat to full screen"
-                aria-label="Maximize Chat"
+                className={`copilot-toggle-btn ${showCopilotCard ? 'copilot-toggle-btn--active' : ''}`}
+                onClick={() => setShowCopilotCard((prev) => !prev)}
+                title={showCopilotCard ? 'Hide Navigation Briefing Box' : 'Show Navigation Briefing Box'}
+                aria-expanded={showCopilotCard}
               >
-                <IconMaximize size={13} color="#38bdf8" />
+                <span className="copilot-toggle-dot" />
+                <span>{showCopilotCard ? 'AUTO BRIEFING · ON' : 'AUTO BRIEFING · OFF'}</span>
               </button>
-            ) : (
-              <button
-                type="button"
-                className="mobile-expand-btn"
-                style={{ marginLeft: 'auto' }}
-                onClick={() => setActiveNav('home')}
-                title="Return to Home Overview"
-                aria-label="Minimize Chat"
-              >
-                <IconMinimize size={13} color="#38bdf8" />
-              </button>
-            )}
+              {activeNav === 'home' ? (
+                <button
+                  type="button"
+                  className="mobile-expand-btn"
+                  onClick={() => setActiveNav('chat')}
+                  title="Maximize Chat to full screen"
+                  aria-label="Maximize Chat"
+                >
+                  <IconMaximize size={13} color="#38bdf8" />
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="mobile-expand-btn"
+                  onClick={() => setActiveNav('home')}
+                  title="Return to Home Overview"
+                  aria-label="Minimize Chat"
+                >
+                  <IconMinimize size={13} color="#38bdf8" />
+                </button>
+              )}
+            </div>
           </div>
 
-          <div
-            className={`mobile-chat-messages ${activeNav === 'chat' ? 'mobile-chat-messages--maximized' : ''}`}
-            ref={chatScrollRef}
-          >
-            {messages &&
-              messages.filter((m) => m.role !== 'system').map((m) => (
-                <div key={m.id} className={`mobile-chat-msg mobile-chat-msg--${m.role}`}>
-                  <div className="mobile-chat-bubble">
-                    <p className="mobile-chat-bubble__text">{m.text}</p>
-                    <span className="mobile-chat-bubble__time">{m.time}</span>
+          {/* Navigation Decision Briefing Box (Matches Desktop) */}
+          {showCopilotCard && (
+            <div className="copilot-decision-card" style={{ margin: '0 0 12px 0' }}>
+              <div className="copilot-decision-card__top">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span className="copilot-badge">NAV COPILOT</span>
+                  <span className={`copilot-status copilot-status--${assessment?.tone || 'good'}`}>
+                    ● {recommendationState}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="copilot-decision-card__hide-btn"
+                  onClick={() => setShowCopilotCard(false)}
+                  title="Hide Navigation Briefing Box"
+                >
+                  Hide
+                </button>
+              </div>
+
+              {isCurrentlyInland ? (
+                <>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                    <span>Position:</span>
+                    <b style={{ color: '#e2e8f0' }}>{userLocation?.label || 'User Location'}</b>
+                    <span style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
+                      YOU
+                    </span>
+                    <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                      (Inland Non-Maritime)
+                    </span>
+                  </div>
+
+                  <div className="copilot-decision-card__target">
+                    <strong>Terrestrial Zone: Clear Operational Profile</strong>
+                    <span> — Gateway: {harbor?.landing_center_name || 'Veraval Fishing Harbor, Gujarat'}</span>
+                  </div>
+
+                  <div className="copilot-decision-card__why">
+                    <div className="copilot-why-title">Why this assessment?</div>
+                    <ul className="copilot-why-list">
+                      <li>
+                        <CheckIcon />
+                        <span>Zero maritime EEZ, IMBL, or coral sanctuary restrictions at this coordinate</span>
+                      </li>
+                      <li>
+                        <CheckIcon />
+                        <span>Surface wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'calm'}</span>
+                      </li>
+                      <li>
+                        <CheckIcon />
+                        <span>Air temp: {safetyData?.air_temp_celsius != null ? `${Math.round(safetyData.air_temp_celsius)} °C` : '--'} · Visibility: {safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : 'optimal'}</span>
+                      </li>
+                      <li>
+                        <CheckIcon />
+                        <span>Maritime telemetry referenced to coastal hub: {harbor?.landing_center_name || 'Veraval'}</span>
+                      </li>
+                    </ul>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                    <span>Terminal:</span>
+                    <b style={{ color: '#e2e8f0' }}>{harbor?.landing_center_name || 'Harbor unavailable'}</b>
+                    <span style={{ background: 'rgba(53, 201, 232, 0.12)', border: '1px solid rgba(53, 201, 232, 0.3)', color: '#38bdf8', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
+                      {harbor ? getUNLocode(harbor) : '--'}
+                    </span>
+                    <span style={{ color: '#94a3b8', fontSize: '10px' }}>
+                      ({harbor ? getFormattedHarborTag(harbor) : '--'})
+                    </span>
+                  </div>
+
+                  <div className="copilot-decision-card__target">
+                    <strong>{activePFZ ? `PFZ-${activePFZ.advisory_id?.slice(-4) || 'ZONE'}` : 'Recommendation pending'}</strong>
+                    {activePFZ && <span> — {activePFZ.target_species || 'Target species not provided'}</span>}
+                  </div>
+
+                  <div className="copilot-decision-card__why">
+                    <div className="copilot-why-title">{hasRecommendation ? 'Why this recommendation?' : 'Data status'}</div>
+                    {hasRecommendation ? (
+                      <ul className="copilot-why-list">
+                        <li>
+                          <CheckIcon />
+                          <span>{selectedRoute?.geofenceEvaluation?.summary || 'Route compliance supplied by the navigation feed'}</span>
+                        </li>
+                        <li>
+                          <CheckIcon />
+                          <span>Wave height: {safetyData?.significant_wave_height_m != null ? `${Number(safetyData.significant_wave_height_m).toFixed(1)} m` : 'not provided'}</span>
+                        </li>
+                        <li>
+                          <CheckIcon />
+                          <span>Sustained wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'not provided'}</span>
+                        </li>
+                        <li>
+                          <CheckIcon />
+                          <span>Distance {activePFZ.distance_nm} NM · Transit ETA: {calculateETA(activePFZ.distance_nm)}</span>
+                        </li>
+                      </ul>
+                    ) : (
+                      <p className="copilot-decision-card__empty">A route recommendation will appear after the safety and navigation feeds return data for this harbor.</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <div className="copilot-decision-card__actions">
+                <button className="copilot-action-btn" onClick={() => setActiveNav('alerts')}>
+                  Inspect Assessment Factors
+                </button>
+              </div>
+            </div>
+          )}
+
+          {hasConversation ? (
+            <>
+              <div
+                className={`mobile-chat-messages ${activeNav === 'chat' ? 'mobile-chat-messages--maximized' : ''}`}
+                ref={chatScrollRef}
+              >
+                {messages &&
+                  messages.filter((m) => m.role !== 'system').map((m) => (
+                    <div key={m.id} className={`mobile-chat-msg mobile-chat-msg--${m.role}`}>
+                      <div className="mobile-chat-bubble">
+                        <p className="mobile-chat-bubble__text">{m.text}</p>
+                        <span className="mobile-chat-bubble__time">{m.time}</span>
+                      </div>
+                    </div>
+                  ))}
+
+                {typing && (
+                  <div className="mobile-chat-msg mobile-chat-msg--assistant">
+                    <div className="mobile-chat-bubble mobile-chat-bubble--typing">
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                      <span className="typing-dot" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Interactive Suggestion Pills in Active Conversation */}
+              <div className="mobile-chat-suggestions" role="group" aria-label="Quick suggested queries">
+                {activeSuggestions.map((sug, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    className="mobile-suggestion-pill"
+                    onClick={() => {
+                      if (sug.toLowerCase().includes('alerts')) {
+                        setActiveNav('alerts')
+                      } else {
+                        handleSendMessage(sug)
+                      }
+                    }}
+                    onTouchStart={() => {}}
+                    disabled={typing}
+                  >
+                    {sug}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className={`mobile-empty-state ${activeNav === 'chat' ? 'mobile-empty-state--maximized' : ''}`} ref={chatScrollRef}>
+              <div className="mobile-empty-state__content">
+                <span className="mobile-empty-state__section-label">MARITIME COPILOT</span>
+
+                <p className="mobile-empty-state__standing-by">
+                  SETU-ADAM01 is standing by.
+                </p>
+                <p className="mobile-empty-state__scope">
+                  Ask about departure safety, weather, waves, tides, PFZs, or recommended sailing routes for your selected harbor.
+                </p>
+
+                <div className="mobile-empty-state__harbor-context">
+                  <span className="mobile-empty-state__harbor-label">SELECTED HARBOR</span>
+                  <span className="mobile-empty-state__harbor-name">
+                    {harbor?.landing_center_name || 'Harbor loading...'}
+                    {harbor?.state ? ` · ${harbor.state}` : ''}
+                  </span>
+                </div>
+
+                <div className="mobile-empty-state__actions">
+                  <button
+                    type="button"
+                    className="mobile-action mobile-action--primary"
+                    onClick={() => handleSendMessage('Is it safe to depart?')}
+                    disabled={typing}
+                  >
+                    Is it safe to depart?
+                  </button>
+                  <div className="mobile-empty-state__actions-row">
+                    <button
+                      type="button"
+                      className="mobile-action mobile-action--secondary"
+                      onClick={() => handleSendMessage('Recommended route')}
+                      disabled={typing}
+                    >
+                      Recommended route
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-action mobile-action--secondary"
+                      onClick={() => handleSendMessage('Nearest PFZ')}
+                      disabled={typing}
+                    >
+                      Nearest PFZ
+                    </button>
+                  </div>
+                  <div className="mobile-empty-state__actions-row">
+                    <button
+                      type="button"
+                      className="mobile-action mobile-action--secondary"
+                      onClick={() => handleSendMessage('Weather conditions')}
+                      disabled={typing}
+                    >
+                      Weather conditions
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-action mobile-action--secondary"
+                      onClick={() => handleSendMessage('Tide forecast')}
+                      disabled={typing}
+                    >
+                      Tide forecast
+                    </button>
+                    <button
+                      type="button"
+                      className="mobile-action mobile-action--secondary"
+                      onClick={() => setActiveNav('alerts')}
+                    >
+                      Active alerts
+                    </button>
                   </div>
                 </div>
-              ))}
-
-            {typing && (
-              <div className="mobile-chat-msg mobile-chat-msg--assistant">
-                <div className="mobile-chat-bubble mobile-chat-bubble--typing">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                </div>
               </div>
-            )}
-          </div>
-
-          {/* Interactive Suggestion Pills */}
-          <div className="mobile-chat-suggestions" role="group" aria-label="Quick suggested queries">
-            {activeSuggestions.map((sug, idx) => (
-              <button
-                key={idx}
-                type="button"
-                className="mobile-suggestion-pill"
-                onClick={() => {
-                  if (sug.toLowerCase().includes('alerts')) {
-                    setActiveNav('alerts')
-                  } else {
-                    handleSendMessage(sug)
-                  }
-                }}
-                onTouchStart={() => {}}
-                disabled={typing}
-              >
-                {sug}
-              </button>
-            ))}
-          </div>
+            </div>
+          )}
 
           {/* Rounded Input Field & Cyan Circular Send Button */}
           <form className="mobile-chat-input-row" onSubmit={handleFormSubmit}>
@@ -937,8 +1190,8 @@ export default function MobileLayout({
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder="Ask SETU anything..."
-              aria-label="Ask SETU anything"
+              placeholder={`Ask about ${harbor?.landing_center_name || 'this harbor'}...`}
+              aria-label={`Ask about ${harbor?.landing_center_name || 'this harbor'}`}
             />
             <button
               type="submit"
