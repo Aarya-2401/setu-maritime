@@ -68,17 +68,43 @@ export async function runTide(req: AgentRequest) { return safe('tide', async () 
 }); }
 
 export async function runCyclone(req: AgentRequest) { return safe('cyclone', async () => {
-  const h = await resolveHarbor(req.location); if (!h) throw new Error('Harbor/location could not be resolved');
+  const h = await resolveHarbor(req.location);
   const [rows]: any = await pool.query(`SELECT * FROM fact_cyclone_tracks ORDER BY timestamp_utc DESC LIMIT 50`);
   let nearest: any = null, min = Infinity;
   for (const r of rows) {
     const lat = num(firstDefined(r, ['latitude', 'lat'])), lon = num(firstDefined(r, ['longitude', 'lon', 'lng']));
     if (lat == null || lon == null) continue;
-    const d = 111.32 * Math.sqrt((lat - h.latitude) ** 2 + ((lon - h.longitude) * Math.cos(h.latitude * Math.PI / 180)) ** 2);
+    const refLat = h ? Number(h.latitude) : 18.0;
+    const refLon = h ? Number(h.longitude) : 73.0;
+    const d = 111.32 * Math.sqrt((lat - refLat) ** 2 + ((lon - refLon) * Math.cos(refLat * Math.PI / 180)) ** 2);
     if (d < min) { min = d; nearest = r; }
   }
-  const data = { cyclonePresent: !!nearest, name: firstDefined(nearest, ['cyclone_name', 'name']), intensity: firstDefined(nearest, ['intensity', 'category', 'storm_category']), distanceKm: min === Infinity ? null : Math.round(min * 10) / 10, latitude: num(firstDefined(nearest, ['latitude', 'lat'])), longitude: num(firstDefined(nearest, ['longitude', 'lon', 'lng'])) };
-  return { agent: 'cyclone', status: 'success', data, cardUpdates: [card('cyclone', 'cyclone', data, h.landing_center_name)], confidence: .88, timestamp: now() };
+  const tracks = (rows || []).map((r: any) => ({
+    cycloneId: firstDefined(r, ['cyclone_id', 'cyclone_name', 'name']),
+    name: firstDefined(r, ['cyclone_name', 'name']),
+    latitude: num(firstDefined(r, ['latitude', 'lat'])),
+    longitude: num(firstDefined(r, ['longitude', 'lon', 'lng'])),
+    intensity: firstDefined(r, ['intensity', 'category', 'storm_category']),
+    timestamp: r.timestamp_utc
+  }));
+  const data = {
+    cyclonePresent: !!nearest,
+    name: firstDefined(nearest, ['cyclone_name', 'name']) || (tracks[0]?.name ?? 'Maritime Tropical System'),
+    intensity: firstDefined(nearest, ['intensity', 'category', 'storm_category']),
+    distanceKm: min === Infinity ? null : Math.round(min * 10) / 10,
+    latitude: num(firstDefined(nearest, ['latitude', 'lat'])),
+    longitude: num(firstDefined(nearest, ['longitude', 'lon', 'lng'])),
+    tracks
+  };
+  const mapUpdate = tracks.length > 0 ? {
+    action: 'fit_layer',
+    layer: 'CYCLONES',
+    scope: 'NATIONAL',
+    targetIds: [...new Set(tracks.map((t: any) => String(t.cycloneId || t.name)).filter(Boolean))],
+    highlight: 'ALL',
+    fitBounds: true
+  } : undefined;
+  return { agent: 'cyclone', status: 'success', data, cardUpdates: [card('cyclone', 'cyclone', data, h?.landing_center_name)], mapUpdate, confidence: .88, timestamp: now() };
 }); }
 
 export async function runMarineAlert(req: AgentRequest) { return safe('marine-alert', async () => {
@@ -88,9 +114,28 @@ export async function runMarineAlert(req: AgentRequest) { return safe('marine-al
 }); }
 
 export async function runPfz(req: AgentRequest) { return safe('pfz', async () => {
-  const h = await resolveHarbor(req.location);
-  const [rows]: any = await pool.query(h ? `SELECT * FROM v_pfz_operational_advisory WHERE harbor_id = ? ORDER BY advisory_date DESC, distance_km ASC LIMIT 25` : `SELECT * FROM v_pfz_operational_advisory ORDER BY advisory_date DESC, distance_km ASC LIMIT 25`, h ? [h.harbor_id] : []);
+  const isNational = req.mapIntent?.scope === 'NATIONAL' || /\b(all|india|national|entire|across)\b/i.test(req.query);
+  let rows: any[] = [];
+  let h: any = null;
+
+  if (isNational) {
+    const [allRows]: any = await pool.query(`SELECT * FROM v_pfz_operational_advisory ORDER BY advisory_date DESC LIMIT 100`);
+    rows = allRows;
+  } else {
+    h = await resolveHarbor(req.location);
+    const [harborRows]: any = await pool.query(
+      h ? `SELECT * FROM v_pfz_operational_advisory WHERE harbor_id = ? ORDER BY advisory_date DESC, distance_km ASC LIMIT 25` : `SELECT * FROM v_pfz_operational_advisory ORDER BY advisory_date DESC, distance_km ASC LIMIT 25`,
+      h ? [h.harbor_id] : []
+    );
+    rows = harborRows;
+  }
+
   const recommendations = rows.map((r: any) => ({
+    id: String(r.advisory_id),
+    advisoryId: String(r.advisory_id),
+    harborId: r.harbor_id,
+    referenceHarbor: r.reference_harbor,
+    state: r.state,
     latitude: num(firstDefined(r, ['latitude', 'lat', 'pfz_latitude'])),
     longitude: num(firstDefined(r, ['longitude', 'lon', 'pfz_longitude'])),
     targetSpecies: firstDefined(r, ['target_species', 'species']),
@@ -99,37 +144,106 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     depth: num(firstDefined(r, ['depth', 'depth_meters'])),
     gear: firstDefined(r, ['recommended_gear', 'gear']),
     distanceKm: num(firstDefined(r, ['distance_km', 'distance'])),
-    bulletin: firstDefined(r, ['bulletin_text', 'bulletin']),
+    bulletin: firstDefined(r, ['bulletin_text', 'bulletin', 'bulletin_text_english']),
     score: num(firstDefined(r, ['pfz_score', 'score']))
   }));
+
   const best = recommendations.find((x: any) => x.latitude != null && x.longitude != null) || recommendations[0];
-  const data = { recommendations };
-  const mapUpdate = best?.latitude != null ? {
-    action: 'recenter',
-    location: {
-      name: h?.landing_center_name || 'PFZ Hotspot',
-      latitude: best.latitude,
-      longitude: best.longitude
-    },
-    zoom: 10,
-    layers: { pfz: true, chlorophyll: true }
-  } : (h ? {
-    action: 'recenter',
-    location: {
-      name: h.landing_center_name,
-      latitude: Number(h.latitude),
-      longitude: Number(h.longitude)
-    },
-    zoom: 11,
-    layers: { pfz: true, chlorophyll: true }
-  } : undefined);
-  return { agent: 'pfz', status: 'success', data, cardUpdates: [card('pfz', 'pfz', { best: best ?? null, count: recommendations.length }, h?.landing_center_name)], mapUpdate, confidence: .92, timestamp: now() };
+  const data = { recommendations, count: recommendations.length, isNational };
+
+  let mapUpdate: Record<string, unknown> | undefined;
+  if (isNational && recommendations.length > 0) {
+    mapUpdate = {
+      action: 'fit_layer',
+      layer: 'PFZ',
+      scope: 'NATIONAL',
+      scopeName: 'India',
+      targetIds: recommendations.map((r) => r.id),
+      highlight: 'ALL',
+      fitBounds: true
+    };
+  } else if (!isNational && best?.latitude != null) {
+    mapUpdate = {
+      action: 'focus_layer',
+      layer: 'PFZ',
+      scope: 'NEAR_LOCATION',
+      location: {
+        name: h?.landing_center_name || 'PFZ Hotspot',
+        latitude: best.latitude,
+        longitude: best.longitude
+      },
+      targetIds: [best.id],
+      zoom: 10,
+      highlight: 'MATCHED',
+      fitBounds: true
+    };
+  }
+
+  return { agent: 'pfz', status: 'success', data, cardUpdates: [card('pfz', 'pfz', { best: best ?? null, count: recommendations.length, isNational }, h?.landing_center_name)], mapUpdate, confidence: .94, timestamp: now() };
 }); }
 
 export async function runZone(req: AgentRequest) { return safe('zone', async () => {
-  const [rows]:any=await pool.query(`SELECT * FROM dim_restricted_zones LIMIT 200`);
-  const data={restrictedZones:rows,count:rows.length};
-  return {agent:'zone',status:'success',data,cardUpdates:[card('zone','zone',{count:rows.length})],confidence:.9,timestamp:now()};
+  const [rows]: any = await pool.query(`SELECT * FROM dim_restricted_zones LIMIT 200`);
+  const targetState = req.stateName ||
+    (req.mapIntent?.scope === 'STATE' ? req.mapIntent.scopeName : null) ||
+    (req.locationType === 'COASTAL_STATE' ? req.location?.name : null);
+
+  let filtered = rows;
+  if (targetState) {
+    const rawTarget = targetState.toLowerCase().trim();
+    filtered = rows.filter((r: any) => {
+      const zState = (r.state || '').toLowerCase();
+      const zName = (r.zone_name || '').toLowerCase();
+      if (rawTarget.includes('bengal')) {
+        return zState.includes('bengal') || zState.includes('wb') || zName.includes('sundarban');
+      }
+      if (rawTarget.includes('odisha') || rawTarget.includes('orissa')) {
+        return zState.includes('odisha') || zState.includes('orissa') || zName.includes('gahirmatha') || zName.includes('bhitarkanika');
+      }
+      if (rawTarget.includes('gujarat')) {
+        return zState.includes('gujarat') || zName.includes('kutch');
+      }
+      if (rawTarget.includes('tamil') || rawTarget.includes('chennai')) {
+        return zState.includes('tamil') || zState.includes('tn') || zName.includes('mannar');
+      }
+      if (rawTarget.includes('kerala')) {
+        return zState.includes('kerala');
+      }
+      if (rawTarget.includes('maharashtra')) {
+        return zState.includes('maharashtra') || zState.includes('mh') || zName.includes('malvan');
+      }
+      if (rawTarget.includes('andaman')) {
+        return zState.includes('andaman') || zName.includes('wandoor') || zName.includes('jhansi');
+      }
+      return zState.includes(rawTarget) || zName.includes(rawTarget);
+    });
+  }
+
+  const data = {
+    restrictedZones: filtered,
+    count: filtered.length,
+    scopeName: targetState || 'India'
+  };
+
+  const mapUpdate = filtered.length > 0 ? {
+    action: 'fit_layer',
+    layer: 'RESTRICTED_ZONES',
+    scope: targetState ? 'STATE' : 'NATIONAL',
+    scopeName: targetState || 'India',
+    targetIds: filtered.map((z: any) => String(z.zone_id)),
+    highlight: 'ALL',
+    fitBounds: true
+  } : undefined;
+
+  return {
+    agent: 'zone',
+    status: 'success',
+    data,
+    cardUpdates: [card('zone', 'zone', { count: filtered.length, scope: targetState || 'NATIONAL' })],
+    mapUpdate,
+    confidence: 0.95,
+    timestamp: now()
+  };
 }); }
 
 export async function runSpecies(req: AgentRequest) { return safe('species', async () => {

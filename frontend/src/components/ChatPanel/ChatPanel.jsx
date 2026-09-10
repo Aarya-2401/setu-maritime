@@ -4,6 +4,7 @@ import { calculateETA } from '../../data/decisionLogic'
 import { getUNLocode, getFormattedHarborTag } from '../../data/harborCodes'
 import { detectInlandLocation } from '../../data/inlandDetector'
 import { askOrcaAI } from '../../services/aiService'
+import { executeMapIntent } from '../../utils/mapIntentExecutor'
 import { IconRadar, IconSend } from '../Icons'
 import './ChatPanel.css'
 
@@ -61,6 +62,8 @@ export default function ChatPanel({
   userLocationTag,
   userLocation,
   onMapFocus,
+  onUpdateDynamicAdvisories,
+  onUpdateDynamicZones,
   isMobile = false
 }) {
   const [input, setInput] = useState('')
@@ -72,6 +75,8 @@ export default function ChatPanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, typing])
 
+  const previousMapIntentRef = useRef(null)
+
   async function sendMessage(text) {
     const trimmed = text.trim()
     if (!trimmed) return
@@ -81,152 +86,55 @@ export default function ChatPanel({
     setInput('')
     setTyping(true)
 
-    // Check if query refers to user location or an inland location
-    const inlandMatch = detectInlandLocation(trimmed)
-    if (inlandMatch?.isUserPositionQuery && onSelectUserLocation) {
-      onSelectUserLocation()
-    } else if (inlandMatch && onSetInlandLocation) {
-      onSetInlandLocation(inlandMatch)
-    }
-
-    // Proactively detect harbor/location mentions in user prompt against loaded 56 harbors
-    const lower = trimmed.toLowerCase()
-    let detectedHarbor = null
-    if (harbors && harbors.length > 0) {
-      detectedHarbor = harbors.find((h) => {
-        const name = (h.landing_center_name || '').toLowerCase()
-        const dist = (h.district || '').toLowerCase()
-        const state = (h.state || '').toLowerCase()
-        return (
-          (lower.includes(dist) && dist.length > 3) ||
-          (lower.includes(name) && name.length > 3) ||
-          (lower.includes(state) && state.length > 3) ||
-          (lower.includes('kolkata') && (h.harbor_id === 47 || state.includes('bengal'))) ||
-          (lower.includes('calcutta') && (h.harbor_id === 47 || state.includes('bengal'))) ||
-          (lower.includes('hooghly') && (h.harbor_id === 47 || state.includes('bengal'))) ||
-          (lower.includes('sundarban') && (h.harbor_id === 48 || state.includes('bengal'))) ||
-          (lower.includes('digha') && h.harbor_id === 45) ||
-          (lower.includes('chennai') && (name.includes('chennai') || dist.includes('chennai') || name.includes('kasimedu'))) ||
-          (lower.includes('mumbai') && (name.includes('mumbai') || name.includes('sassoon') || dist.includes('mumbai'))) ||
-          (lower.includes('cochin') && (name.includes('cochin') || name.includes('kochi'))) ||
-          (lower.includes('kochi') && (name.includes('cochin') || name.includes('kochi'))) ||
-          (lower.includes('vizag') && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
-          ((lower.includes('visakhapatnam') || lower.includes('vishakhapatnam')) && (name.includes('visakhapatnam') || dist.includes('visakhapatnam'))) ||
-          ((lower.includes('paradip') || lower.includes('paradeep')) && name.includes('paradip')) ||
-          ((lower.includes('odisha') || lower.includes('odhisha') || lower.includes('orissa')) && (state.includes('odisha') || h.harbor_id === 41)) ||
-          ((lower.includes('kerala') || lower.includes('kerla')) && (state.includes('kerala') || h.harbor_id === 19)) ||
-          ((lower.includes('gujarat') || lower.includes('gujrat')) && (state.includes('gujarat') || h.harbor_id === 1)) ||
-          ((lower.includes('maharashtra') || lower.includes('maharastra')) && (state.includes('maharashtra') || h.harbor_id === 6)) ||
-          ((lower.includes('karnataka') || lower.includes('karnatka')) && (state.includes('karnataka') || h.harbor_id === 14)) ||
-          (lower.includes('dhamra') && name.includes('dhamra')) ||
-          (lower.includes('puri') && (dist.includes('puri') || name.includes('puri'))) ||
-          (lower.includes('goa') && (state.includes('goa') || name.includes('goa')))
-        )
-      })
-      if (detectedHarbor && onSelectHarbor) {
-        onSelectHarbor(detectedHarbor.harbor_id)
-        if (onMapFocus && detectedHarbor.latitude && detectedHarbor.longitude) {
-          onMapFocus({
-            lat: Number(detectedHarbor.latitude),
-            lon: Number(detectedHarbor.longitude),
-            zoom: 11,
-            label: detectedHarbor.landing_center_name,
-            timestamp: Date.now()
-          })
-        }
-      }
+    const context = {
+      selectedHarborId: harbor?.harbor_id,
+      previousMapIntent: previousMapIntentRef.current,
+      previousLocation: harbor ? {
+        name: harbor.landing_center_name,
+        latitude: Number(harbor.latitude),
+        longitude: Number(harbor.longitude)
+      } : undefined
     }
 
     try {
-      const aiResponse = await askOrcaAI(trimmed)
+      const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        // Agentic AI manipulation of dashboard components based on user intent:
-        if (aiResponse.isInland || aiResponse.locationStatus === 'INLAND') {
-          // Inland location: retain fallback harbor (harbor_id 1, Veraval) in background
-          if (aiResponse.harborId && onSelectHarbor) {
-            onSelectHarbor(aiResponse.harborId)
-          }
-
-          if (aiResponse.mapUpdate?.location && onMapFocus) {
-            onMapFocus({
-              lat: Number(aiResponse.mapUpdate.location.latitude),
-              lon: Number(aiResponse.mapUpdate.location.longitude),
-              zoom: aiResponse.mapUpdate.zoom || 10,
-              label: aiResponse.mapUpdate.location.name,
-              timestamp: Date.now()
-            })
-          }
-
-          if (onSetInlandLocation && aiResponse.mapUpdate?.location) {
-            onSetInlandLocation({
-              lat: Number(aiResponse.mapUpdate.location.latitude),
-              lon: Number(aiResponse.mapUpdate.location.longitude),
-              place: aiResponse.location || aiResponse.mapUpdate.location.name,
-              label: aiResponse.mapUpdate.location.name
-            })
-          } else if (onSelectUserLocation) {
-            onSelectUserLocation()
-          }
-        } else if (aiResponse.locationStatus === 'SUPPORTED' || aiResponse.locationStatus === 'COASTAL_STATE') {
-          if (aiResponse.harborId && onSelectHarbor) {
-            onSelectHarbor(aiResponse.harborId)
-          } else if (aiResponse.resolvedHarbor?.harbor_id && onSelectHarbor) {
-            onSelectHarbor(aiResponse.resolvedHarbor.harbor_id)
-          }
-
-          if (aiResponse.mapUpdate?.location && onMapFocus) {
-            onMapFocus({
-              lat: Number(aiResponse.mapUpdate.location.latitude),
-              lon: Number(aiResponse.mapUpdate.location.longitude),
-              zoom: aiResponse.mapUpdate.zoom || 11,
-              label: aiResponse.mapUpdate.location.name,
-              timestamp: Date.now()
-            })
-          }
+        if (aiResponse.mapIntent) {
+          previousMapIntentRef.current = aiResponse.mapIntent
+          executeMapIntent(aiResponse.mapIntent, aiResponse, {
+            onSelectHarbor,
+            onMapFocus,
+            onSetInlandLocation,
+            onSelectUserLocation,
+            onUpdateDynamicAdvisories,
+            onUpdateDynamicZones
+          })
         }
-
-        const replySuggestions = (aiResponse.suggestions && aiResponse.suggestions.length > 0)
-          ? aiResponse.suggestions
-          : (inlandMatch ? inlandMatch.suggestions : [])
 
         const reply = {
           id: getUUID(),
           role: 'assistant',
           text: aiResponse.answer,
           time: timeNow(),
-          suggestions: replySuggestions
+          suggestions: aiResponse.suggestions || []
         }
         onAddMessage(reply)
         setTyping(false)
         return
       }
     } catch (err) {
-      console.warn('AI endpoint unavailable, using local maritime telemetry engine:', err.message)
+      console.warn('AI endpoint unavailable, using local maritime fallback:', err?.message || err)
     }
 
-    // Fallback response: if inland detected, update dashboard and provide clear guidance
-    if (inlandMatch) {
-      setTimeout(() => {
-        const place = inlandMatch.place
-        const reply = {
-          id: getUUID(),
-          role: 'assistant',
-          text: `${place} is an inland location with no open coastline. I have updated your dashboard title cards with the live local weather and surface winds for ${place}, centered your locality radar map on ${place}, and maintained Veraval Fishing Harbor, Gujarat as your regional maritime reference point.`,
-          time: timeNow(),
-          suggestions: inlandMatch.suggestions
-        }
-        onAddMessage(reply)
-        setTyping(false)
-      }, 450)
-      return
-    }
-
+    // Fallback if backend API is unreachable
     setTimeout(() => {
+      const fallbackText = buildReply(trimmed, harbor, safetyData, tides, advisories)
       const reply = {
         id: getUUID(),
         role: 'assistant',
-        text: buildReply(trimmed, detectedHarbor || harbor, safetyData, tides, advisories),
+        text: fallbackText,
         time: timeNow(),
+        suggestions: ['Is it safe to depart?', 'Recommended route', 'Nearest PFZ']
       }
       onAddMessage(reply)
       setTyping(false)

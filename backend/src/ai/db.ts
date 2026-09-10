@@ -191,6 +191,7 @@ export const INLAND_COORDINATES: Record<string, { lat: number; lon: number; stat
   bikaner: { lat: 28.0229, lon: 73.3119, state: 'Rajasthan', name: 'Bikaner, Rajasthan' },
   ajmer: { lat: 26.4499, lon: 74.6399, state: 'Rajasthan', name: 'Ajmer, Rajasthan' },
   kota: { lat: 25.2138, lon: 75.8648, state: 'Rajasthan', name: 'Kota, Rajasthan' },
+  jaisalmer: { lat: 26.9157, lon: 70.9083, state: 'Rajasthan', name: 'Jaisalmer, Rajasthan' },
   nagpur: { lat: 21.1458, lon: 79.0882, state: 'Maharashtra', name: 'Nagpur, Maharashtra' },
   nashik: { lat: 19.9975, lon: 73.7898, state: 'Maharashtra', name: 'Nashik, Maharashtra' }
 };
@@ -234,6 +235,7 @@ export const COASTAL_STATE_REFS: CoastalStateRef[] = [
 
 export interface LocationResolution {
   status: 'SUPPORTED' | 'COASTAL_STATE' | 'INLAND' | 'UNKNOWN';
+  locationType?: 'HARBOR' | 'COASTAL_STATE' | 'INLAND' | 'REGION' | 'UNKNOWN';
   locationName?: string;
   stateName?: string;
   coordinates?: { latitude: number; longitude: number };
@@ -243,14 +245,24 @@ export interface LocationResolution {
   suggestions?: string[];
 }
 
-export async function resolveLocation(location?: { name?: string; harborId?: number; latitude?: number; longitude?: number }): Promise<LocationResolution> {
+export async function resolveLocation(locationInput?: string | { name?: string; harborId?: number; latitude?: number; longitude?: number }): Promise<LocationResolution> {
+  const location = typeof locationInput === 'string' ? { name: locationInput } : locationInput;
   const fallbackSuggestions = ['Veraval', 'Mumbai', 'Kochi', 'Paradip', 'Visakhapatnam', 'Chennai'];
 
   // 1. Direct ID lookup
   if (location?.harborId) {
-    const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [location.harborId]);
-    if (rows.length) {
-      return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
+    try {
+      const [rows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [location.harborId]);
+      if (rows.length) {
+        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
+      }
+    } catch (e) {
+      return {
+        status: 'SUPPORTED',
+        locationType: 'HARBOR',
+        locationName: `Harbor #${location.harborId}`,
+        harbor: { harbor_id: location.harborId, landing_center_name: `Harbor #${location.harborId}` }
+      };
     }
   }
 
@@ -268,16 +280,49 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
     );
 
     if (matchedState) {
-      const [stateRows]: any = await pool.query(
-        'SELECT * FROM dim_fishing_harbors WHERE state LIKE ? ORDER BY harbor_id ASC',
-        [`%${matchedState.stateName}%`]
-      );
-      const refHarbor = stateRows.find((r: any) => r.harbor_id === matchedState.primaryHarborId) || stateRows[0];
-      const otherHarbors = stateRows
-        .filter((r: any) => r.harbor_id !== refHarbor?.harbor_id)
-        .map((r: any) => r.landing_center_name.split(' (')[0]);
+      let stateRows: any[] = [];
+      let refHarbor: any = null;
+      let otherHarbors: string[] = [];
+      try {
+        const [rows]: any = await pool.query(
+          'SELECT * FROM dim_fishing_harbors WHERE state LIKE ? ORDER BY harbor_id ASC',
+          [`%${matchedState.stateName}%`]
+        );
+        stateRows = rows || [];
+        refHarbor = stateRows.find((r: any) => r.harbor_id === matchedState.primaryHarborId) || stateRows[0] || null;
+        otherHarbors = stateRows
+          .filter((r: any) => r.harbor_id !== refHarbor?.harbor_id)
+          .map((r: any) => r.landing_center_name.split(' (')[0]);
+      } catch (e) {
+        // Offline or connection-refused fallback
+      }
+
+      if (!refHarbor) {
+        const PRIMARY_HARBOR_NAMES: Record<number, string> = {
+          41: 'Paradip Fishing Harbour',
+          19: 'Cochin Fisheries Harbour',
+          1: 'Veraval Fishing Harbour',
+          6: 'Sassoon Dock (Mumbai)',
+          12: 'Malim (Panaji)',
+          14: 'Old Mangalore Port',
+          30: 'Kasimedu (Chennai)',
+          37: 'Visakhapatnam Fishing Harbour',
+          47: 'Haldia Port (Diamond Harbour)',
+          49: 'Kavaratti Harbor',
+          52: 'Port Blair Harbor'
+        };
+        const name = PRIMARY_HARBOR_NAMES[matchedState.primaryHarborId] || `${matchedState.stateName} Primary Port`;
+        refHarbor = {
+          harbor_id: matchedState.primaryHarborId,
+          landing_center_name: name,
+          state: matchedState.stateName
+        };
+        stateRows = [refHarbor];
+      }
+
       return {
         status: 'COASTAL_STATE',
+        locationType: 'COASTAL_STATE',
         locationName: matchedState.stateName,
         stateName: matchedState.stateName,
         harbor: refHarbor,
@@ -298,9 +343,18 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       }
     }
     if (mappedId) {
-      const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [mappedId]);
-      if (mRows.length) {
-        return { status: 'SUPPORTED', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+      try {
+        const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [mappedId]);
+        if (mRows.length) {
+          return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+        }
+      } catch (e) {
+        return {
+          status: 'SUPPORTED',
+          locationType: 'HARBOR',
+          locationName: raw,
+          harbor: { harbor_id: mappedId, landing_center_name: raw }
+        };
       }
     }
 
@@ -322,10 +376,12 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
 
       return {
         status: 'INLAND',
+        locationType: 'INLAND',
         locationName: coords?.name || location.name,
         stateName: coords?.state,
         coordinates: coords ? { latitude: coords.lat, longitude: coords.lon } : undefined,
         harbor: null,
+        referenceHarbor: null,
         suggestions: inlandSuggestions
       };
     }
@@ -344,7 +400,7 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       [location.name, location.name, location.name, location.name, location.name, location.name, location.name]
     );
     if (rows.length) {
-      return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
+      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
     }
 
     // Fuzzy match against regional harbor/city aliases
@@ -362,13 +418,14 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       const fuzzyId = REGIONAL_CITY_MAP[closestKey];
       const [mRows]: any = await pool.query('SELECT * FROM dim_fishing_harbors WHERE harbor_id = ?', [fuzzyId]);
       if (mRows.length) {
-        return { status: 'SUPPORTED', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
+        return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: mRows[0].landing_center_name, harbor: mRows[0] };
       }
     }
 
     // Unrecognized location
     return {
       status: 'UNKNOWN',
+      locationType: 'UNKNOWN',
       locationName: location.name,
       harbor: null,
       suggestions: fallbackSuggestions
@@ -384,20 +441,21 @@ export async function resolveLocation(location?: { name?: string; harborId?: num
       [location.latitude, location.longitude, location.latitude]
     );
     if (rows.length && rows[0].distance_km < 150) {
-      return { status: 'SUPPORTED', locationName: rows[0].landing_center_name, harbor: rows[0] };
+      return { status: 'SUPPORTED', locationType: 'HARBOR', locationName: rows[0].landing_center_name, harbor: rows[0] };
     }
   }
 
   // Absolutely NO default harbor fallback (e.g. no defaulting to Gujarat/Veraval)
   return {
     status: 'UNKNOWN',
+    locationType: 'UNKNOWN',
     harbor: null,
     suggestions: fallbackSuggestions
   };
 }
 
-export async function resolveHarbor(location?: { name?: string; harborId?: number; latitude?: number; longitude?: number }) {
-  const res = await resolveLocation(location);
+export async function resolveHarbor(locationInput?: string | { name?: string; harborId?: number; latitude?: number; longitude?: number }) {
+  const res = await resolveLocation(locationInput);
   return res.harbor || null;
 }
 

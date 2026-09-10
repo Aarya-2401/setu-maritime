@@ -64,7 +64,25 @@ function MapCameraController({ centerLat, centerLon, focusTarget }) {
   const prevCenterKey = useRef(null)
 
   useEffect(() => {
-    // Priority 1: Smooth cinematic flyTo if a specific target coordinate is commanded
+    // Priority 1: Fit bounds if bounding box is commanded (e.g. state zones, national PFZ, EEZ, IMBL, Cyclones)
+    if (focusTarget && focusTarget.bounds && Array.isArray(focusTarget.bounds) && focusTarget.bounds.length >= 2) {
+      if (focusTarget.timestamp !== prevTargetTime.current) {
+        prevTargetTime.current = focusTarget.timestamp
+        try {
+          map.fitBounds(focusTarget.bounds, {
+            padding: [45, 45],
+            maxZoom: focusTarget.maxZoom || 11,
+            animate: true,
+            duration: 2.0
+          })
+        } catch (e) {
+          console.warn('[MapCameraController] fitBounds failed:', e)
+        }
+        return
+      }
+    }
+
+    // Priority 2: Smooth cinematic flyTo if a specific target coordinate is commanded
     if (focusTarget && focusTarget.lat && focusTarget.lon) {
       if (focusTarget.timestamp !== prevTargetTime.current) {
         prevTargetTime.current = focusTarget.timestamp
@@ -76,7 +94,7 @@ function MapCameraController({ centerLat, centerLon, focusTarget }) {
       }
     }
 
-    // Priority 2: Recenter to selected harbor if harbor changes
+    // Priority 3: Recenter to selected harbor if harbor changes
     const centerKey = `${centerLat},${centerLon}`
     if (centerLat && centerLon && prevCenterKey.current !== centerKey) {
       prevCenterKey.current = centerKey
@@ -169,7 +187,8 @@ function MapLayers({
   selectedRouteId,
   onSelectRoute,
   userLocation,
-  harborCoords
+  harborCoords,
+  mapFocusTarget
 }) {
   const locode = getUNLocode(harbor)
   const harborMarkerIcon = useMemo(() => createHarborMarkerIcon(locode), [locode])
@@ -414,14 +433,23 @@ function MapLayers({
       {/* 3. PFZ Potential Fishing Zone Hotspots — Interactive and Highlighted when Selected */}
       {layerPFZ &&
         advisories &&
-        advisories.slice(0, 10).map((adv, idx) => {
+        (mapFocusTarget?.scope === 'NATIONAL' || mapFocusTarget?.layer === 'PFZ' || mapFocusTarget?.highlightAll
+          ? advisories
+          : advisories.slice(0, 10)
+        ).map((adv, idx) => {
           const pLat = Number(adv.pfz_latitude)
           const pLon = Number(adv.pfz_longitude)
           if (!pLat || !pLon) return null
 
+          const isTargetHighlighted =
+            mapFocusTarget?.highlightAll ||
+            (Array.isArray(mapFocusTarget?.highlightedPfzIds) &&
+              mapFocusTarget.highlightedPfzIds.includes(adv.advisory_id))
+
           const isSelected =
             adv.advisory_id === selectedRouteId ||
-            (!selectedRouteId && idx === 0)
+            isTargetHighlighted ||
+            (!selectedRouteId && !mapFocusTarget?.highlightedPfzIds && idx === 0)
 
           return (
             <Circle
@@ -497,21 +525,33 @@ function MapLayers({
           const zLat = Number(zone.latitude)
           const zLon = Number(zone.longitude)
           if (!zLat || !zLon) return null
+
+          const isHighlighted =
+            (Array.isArray(mapFocusTarget?.highlightedZoneIds) &&
+              mapFocusTarget.highlightedZoneIds.includes(zone.zone_id)) ||
+            (mapFocusTarget?.layer === 'RESTRICTED_ZONES' &&
+              mapFocusTarget?.scopeName &&
+              (zone.state?.toLowerCase().includes(mapFocusTarget.scopeName.toLowerCase()) ||
+                zone.zone_name?.toLowerCase().includes(mapFocusTarget.scopeName.toLowerCase())))
+
           return (
             <Circle
               key={zone.zone_id}
               center={[zLat, zLon]}
-              radius={Math.sqrt(Number(zone.area_km2 || 100)) * 1000}
+              radius={Math.sqrt(Number(zone.area_km2 || 100)) * (isHighlighted ? 1200 : 1000)}
               pathOptions={{
-                color: '#f43f5e',
-                fillColor: '#f43f5e',
-                fillOpacity: 0.18,
-                dashArray: '5, 5',
-                weight: 2,
+                color: isHighlighted ? '#e11d48' : '#f43f5e',
+                fillColor: isHighlighted ? '#e11d48' : '#f43f5e',
+                fillOpacity: isHighlighted ? 0.42 : 0.18,
+                dashArray: isHighlighted ? '3, 3' : '5, 5',
+                weight: isHighlighted ? 3.5 : 2,
               }}
             >
               <Tooltip sticky direction="bottom">
-                <span style={{ color: '#be123c', fontWeight: 700 }}>Restricted: {zone.zone_name}</span>
+                <span style={{ color: '#be123c', fontWeight: 700 }}>
+                  {isHighlighted ? 'TARGET RESTRICTED: ' : 'Restricted: '}
+                  {zone.zone_name}
+                </span>
               </Tooltip>
               <Popup>
                 <div style={{ color: '#0f172a', fontSize: '11.5px', maxWidth: '230px' }}>
@@ -624,6 +664,64 @@ function MapLayers({
             </Polyline>
           )
         })}
+
+      {/* Active Tropical Cyclone Warning Tracks */}
+      {(() => {
+        const cycloneTracks = Array.isArray(mapFocusTarget?.cyclones)
+          ? mapFocusTarget.cyclones
+          : (mapFocusTarget?.cyclones?.tracks || [])
+        if (!cycloneTracks || cycloneTracks.length === 0) return null
+        const trackPositions = cycloneTracks
+          .map((t) => [Number(t.latitude), Number(t.longitude)])
+          .filter(([lat, lon]) => !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0)
+        if (trackPositions.length === 0) return null
+
+        return (
+          <>
+            <Polyline
+              positions={trackPositions}
+              pathOptions={{
+                color: '#ef4444',
+                weight: 3.5,
+                dashArray: '5, 5',
+                opacity: 0.95
+              }}
+            >
+              <Tooltip sticky direction="top">
+                <span style={{ color: '#ef4444', fontWeight: 700 }}>
+                  Cyclone Advisory Track ({cycloneTracks[0]?.name || cycloneTracks[0]?.cycloneId || 'Active Cyclone'})
+                </span>
+              </Tooltip>
+            </Polyline>
+            {cycloneTracks
+              .filter((_, idx) => idx % 5 === 0 || idx === cycloneTracks.length - 1)
+              .map((pt, idx) => (
+                <Circle
+                  key={`cyc-pt-${idx}`}
+                  center={[Number(pt.latitude), Number(pt.longitude)]}
+                  radius={18000}
+                  pathOptions={{
+                    color: '#ef4444',
+                    fillColor: '#ef4444',
+                    fillOpacity: 0.35,
+                    weight: 2
+                  }}
+                >
+                  <Popup>
+                    <div style={{ color: '#0f172a', fontSize: '11.5px' }}>
+                      <strong style={{ color: '#dc2626' }}>
+                        {pt.name || pt.cycloneId || 'Cyclone Track Point'}
+                      </strong><br />
+                      <span>Intensity: {pt.intensity || 'Active'}</span><br />
+                      <span>Position: {Number(pt.latitude).toFixed(2)}°N, {Number(pt.longitude).toFixed(2)}°E</span><br />
+                      <span>Time: {pt.timestamp ? new Date(pt.timestamp).toUTCString() : 'Observed'}</span>
+                    </div>
+                  </Popup>
+                </Circle>
+              ))}
+          </>
+        )
+      })()}
 
       {/* Real-time User Geolocation Position Marker */}
       {userLocation && userLocation.lat && userLocation.lon && (
@@ -779,7 +877,8 @@ export default function MapSection({
     maritimeBoundaries,
     selectedRouteId,
     onSelectRoute,
-    userLocation
+    userLocation,
+    mapFocusTarget
   }
   const geofenceStatus = !hasRouteData
     ? 'UNAVAILABLE'

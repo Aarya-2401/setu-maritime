@@ -39,6 +39,8 @@ export default function App() {
     } catch { return null }
   })
   const [liveWeatherData, setLiveWeatherData] = useState(null)
+  const [dynamicAdvisories, setDynamicAdvisories] = useState(null)
+  const [dynamicZones, setDynamicZones] = useState(null)
 
   const isMobile = useIsMobile(768)
 
@@ -169,11 +171,15 @@ export default function App() {
     setIsUserLocationActive(false)
     setSelectedRouteId(null)
     setMapFocusTarget(null)
+    setDynamicAdvisories(null)
+    setDynamicZones(null)
   }
 
   // Switch to user location view
   function handleSelectUserLocation() {
     setIsUserLocationActive(true)
+    setDynamicAdvisories(null)
+    setDynamicZones(null)
     if (userLocation?.lat && userLocation?.lon) {
       setMapFocusTarget({
         lat: Number(userLocation.lat),
@@ -297,17 +303,20 @@ export default function App() {
     return safetyData
   }, [isUserLocationActive, liveWeatherData, safetyData, userLocation])
 
+  const effectiveAdvisories = dynamicAdvisories || advisories
+  const effectiveZones = dynamicZones || restrictedZones
+
   // Unified single source of truth for departure decision and factor evaluation
   const globalAssessment = useMemo(() => {
     return calculateGlobalAssessment({
       harbor: selectedHarbor,
       safetyData,
       routes,
-      restrictedZones,
+      restrictedZones: effectiveZones,
       selectedRouteId,
       tides
     })
-  }, [selectedHarbor, safetyData, routes, restrictedZones, selectedRouteId, tides])
+  }, [selectedHarbor, safetyData, routes, effectiveZones, selectedRouteId, tides])
 
   // Dynamic active assessment: if inland user location is active, tailor assessment to inland position
   const activeAssessment = useMemo(() => {
@@ -346,9 +355,9 @@ export default function App() {
           hasApiError={hasApiError}
           tides={tides}
           tideMeta={tideMeta}
-          advisories={advisories}
+          advisories={effectiveAdvisories}
           routes={routes}
-          restrictedZones={restrictedZones}
+          restrictedZones={effectiveZones}
           maritimeBoundaries={maritimeBoundaries}
           selectedRouteId={selectedRouteId || activeAssessment?.selectedRoute?.advisory_id}
           onSelectRoute={setSelectedRouteId}
@@ -358,6 +367,8 @@ export default function App() {
           onAddMessage={handleAddMessage}
           onTriggerKeralaDemo={handleTriggerKeralaDemo}
           onMapFocus={setMapFocusTarget}
+          onUpdateDynamicAdvisories={setDynamicAdvisories}
+          onUpdateDynamicZones={setDynamicZones}
         />
 
         {assessmentModalOpen && (
@@ -410,9 +421,9 @@ export default function App() {
             harbors={harbors}
             onSelectHarbor={handleSelectHarbor}
             safetyData={effectiveSafetyData}
-            advisories={advisories}
+            advisories={effectiveAdvisories}
             routes={routes}
-            restrictedZones={restrictedZones}
+            restrictedZones={effectiveZones}
             maritimeBoundaries={maritimeBoundaries}
             selectedRouteId={selectedRouteId || activeAssessment?.selectedRoute?.advisory_id}
             onSelectRoute={setSelectedRouteId}
@@ -446,7 +457,7 @@ export default function App() {
         harbors={harbors}
         safetyData={effectiveSafetyData}
         tides={tides}
-        advisories={advisories}
+        advisories={effectiveAdvisories}
         messages={messages}
         onAddMessage={handleAddMessage}
         assessment={activeAssessment}
@@ -461,6 +472,8 @@ export default function App() {
         userLocationTag={userLocationTag}
         userLocation={userLocation}
         onMapFocus={setMapFocusTarget}
+        onUpdateDynamicAdvisories={setDynamicAdvisories}
+        onUpdateDynamicZones={setDynamicZones}
       />
 
       {/* Unified Departure & Route Assessment Breakdown Modal */}

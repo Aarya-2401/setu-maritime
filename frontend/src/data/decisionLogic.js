@@ -283,7 +283,7 @@ export function calculateGlobalAssessment({
     {
       category: 'GEOSPATIAL_REGULATORY',
       name: '200 NM Indian EEZ Outer Limit',
-      value: hasRouteData ? 'Inside Sovereign Territorial Waters' : 'Route data unavailable',
+      value: hasRouteData ? 'Within 200 NM Indian EEZ' : 'Route data unavailable',
       threshold: 'UNCLOS 1982 Sovereign Zone (370.4 km)',
       state: hasRouteData ? 'PASS' : 'UNAVAILABLE',
       tone: hasRouteData ? 'good' : 'neutral',
