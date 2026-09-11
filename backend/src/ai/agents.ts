@@ -217,10 +217,24 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     } catch (e: any) {
       console.warn('[ORCA] Harbor PFZ DB query failed; using fallback', e?.message || e);
     }
-    if (!rows.length) {
-      rows = h ? FALLBACK_PFZ_NATIONAL.filter((p: any) => p.harbor_id === h.harbor_id) : FALLBACK_PFZ_NATIONAL.slice(0, 10);
-      if (!rows.length) rows = FALLBACK_PFZ_NATIONAL.slice(0, 5);
+    if (!rows.length && h) {
+      rows = FALLBACK_PFZ_NATIONAL.filter((p: any) => p.harbor_id === h.harbor_id);
+      if (!rows.length && h.state) {
+        rows = FALLBACK_PFZ_NATIONAL.filter((p: any) => (p.state || '').toLowerCase().includes(h.state.toLowerCase()));
+      }
+      if (!rows.length && h.latitude && h.longitude) {
+        const hLat = Number(h.latitude);
+        const hLon = Number(h.longitude);
+        rows = FALLBACK_PFZ_NATIONAL.filter((p: any) => {
+          const lat = Number(p.latitude);
+          const lon = Number(p.longitude);
+          if (isNaN(lat) || isNaN(lon)) return false;
+          const d = 111.32 * Math.sqrt((lat - hLat) ** 2 + ((lon - hLon) * Math.cos(hLat * Math.PI / 180)) ** 2);
+          return d <= 250;
+        });
+      }
     }
+    if (!rows.length) rows = FALLBACK_PFZ_NATIONAL.slice(0, 5);
   }
 
   const recommendations = rows.map((r: any) => {
@@ -324,14 +338,17 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     };
   }
 
-  const cardLocation = targetState ? `${targetState} Waters` : (isNational ? 'India' : (h?.landing_center_name || 'Coastal Waters'));
+  const cardLocation = targetState
+    ? `${targetState} Waters`
+    : (h ? `${h.landing_center_name?.split(' (')[0]} Waters` : (isNational ? 'India' : 'Coastal Waters'));
   const cardData = {
     best: best ?? null,
     count: recommendations.length,
     isNational,
-    scope: targetState ? 'STATE' : (isNational ? 'NATIONAL' : 'NEAR_LOCATION'),
-    scopeName: targetState || (isNational ? 'India' : h?.landing_center_name),
-    state: targetState || null
+    scope: targetState ? 'STATE' : (h ? 'NEAR_LOCATION' : (isNational ? 'NATIONAL' : 'NEAR_LOCATION')),
+    scopeName: targetState || (isNational ? 'India' : h?.landing_center_name?.split(' (')[0]),
+    state: targetState || h?.state || null,
+    recommendations: recommendations.slice(0, 10)
   };
 
   return {
@@ -361,9 +378,16 @@ export async function runZone(req: AgentRequest) { return safe('zone', async () 
     (req.locationType === 'COASTAL_STATE' ? req.location?.name : null) ||
     extractCoastalStateName(req.query);
 
+  let h: any = null;
+  if (!targetState && req.location) {
+    h = await resolveHarbor(req.location);
+  }
+
   let filtered = rows;
-  if (targetState) {
-    const rawTarget = targetState.toLowerCase().trim();
+  const effectiveState = targetState || h?.state;
+
+  if (effectiveState) {
+    const rawTarget = effectiveState.toLowerCase().trim();
     filtered = rows.filter((r: any) => {
       const zState = (r.state || '').toLowerCase();
       const zName = (r.zone_name || '').toLowerCase();
@@ -388,31 +412,71 @@ export async function runZone(req: AgentRequest) { return safe('zone', async () 
       if (rawTarget.includes('andaman')) {
         return zState.includes('andaman') || zName.includes('wandoor') || zName.includes('jhansi');
       }
+      if (rawTarget.includes('karnataka')) {
+        return zState.includes('karnataka') || zName.includes('karwar');
+      }
+      if (rawTarget.includes('andhra')) {
+        return zState.includes('andhra') || zName.includes('coringa') || zName.includes('pulicat');
+      }
+      if (rawTarget.includes('goa')) {
+        return zState.includes('goa');
+      }
       return zState.includes(rawTarget) || zName.includes(rawTarget);
     });
+  } else if (h?.latitude && h?.longitude) {
+    const hLat = Number(h.latitude);
+    const hLon = Number(h.longitude);
+    filtered = rows.filter((r: any) => {
+      const zLat = Number(r.latitude);
+      const zLon = Number(r.longitude);
+      if (isNaN(zLat) || isNaN(zLon)) return false;
+      const d = 111.32 * Math.sqrt((zLat - hLat) ** 2 + ((zLon - hLon) * Math.cos(hLat * Math.PI / 180)) ** 2);
+      return d <= 250;
+    });
   }
+
+  const scope = targetState ? 'STATE' : (h ? 'NEAR_LOCATION' : 'NATIONAL');
+  const scopeName = targetState || h?.landing_center_name?.split(' (')[0] || 'India';
+  const cardLocation = h ? `${h.landing_center_name?.split(' (')[0]} Area` : (targetState ? `${targetState} Waters` : 'India');
 
   const data = {
     restrictedZones: filtered,
     count: filtered.length,
-    scopeName: targetState || 'India'
+    scopeName,
+    scope
   };
 
   const mapUpdate = filtered.length > 0 ? {
     action: 'fit_layer',
     layer: 'RESTRICTED_ZONES',
-    scope: targetState ? 'STATE' : 'NATIONAL',
-    scopeName: targetState || 'India',
+    scope,
+    scopeName,
     targetIds: filtered.map((z: any) => String(z.zone_id)),
     highlight: 'ALL',
     fitBounds: true
   } : undefined;
 
+  const cardData = {
+    count: filtered.length,
+    scope,
+    scopeName,
+    location: cardLocation,
+    zones: filtered.map((z: any) => ({
+      zone_id: z.zone_id,
+      zone_name: z.zone_name,
+      zone_type: z.zone_type,
+      state: z.state,
+      area_km2: z.area_km2,
+      active_months: z.active_months,
+      restriction_details: z.restriction_details
+    }))
+  };
+
   return {
     agent: 'zone',
     status: 'success',
     data,
-    cardUpdates: [card('zone', 'zone', { count: filtered.length, scope: targetState || 'NATIONAL' })],
+    cardUpdates: [card('zone', 'zone', cardData, cardLocation)],
     mapUpdate,
     confidence: 0.95,
     timestamp: now()

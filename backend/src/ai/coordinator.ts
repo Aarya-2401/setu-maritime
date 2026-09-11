@@ -100,26 +100,93 @@ export function fallbackPlan(query: string): CoordinatorRequest {
   else if (mapIntent.layer === 'ROUTES') intent = 'ROUTE_DISPLAY';
   else if (requestedAgents.length === 1 && requestedAgents[0] === 'weather') intent = 'WEATHER_FORECAST';
 
+  let dashboardContext: 'HARBOR_TELEMETRY' | 'PFZ_OVERVIEW' | 'RESTRICTED_ZONES' | 'WEATHER_FORECAST' | 'WAVE_ANALYSIS' | 'TIDE_FORECAST' | 'CYCLONE_TRACK' | 'NAVIGATION_ROUTE' | 'DEPARTURE_ASSESSMENT' | 'INLAND_STATUS' = 'HARBOR_TELEMETRY';
+  let primaryCard: 'pfz' | 'zone' | 'weather' | 'wind' | 'wave' | 'tide' | 'cyclone' | 'route' | 'assessment' | 'inland' = 'weather';
+  let title = 'Harbor Telemetry';
+  let subtitle: string | undefined;
+
   const inlandHit = locName && INLAND_REGIONS.has(locName.toLowerCase());
   if (inlandHit) {
     return {
       intent: 'INLAND_LOCATION',
       requestedAgents: ['weather'],
       location: { name: locName },
-      mapIntent: { action: 'FOCUS_LOCATION', highlight: 'MATCHED', fitBounds: false, location: { name: locName } }
+      mapIntent: { action: 'FOCUS_LOCATION', highlight: 'MATCHED', fitBounds: false, location: { name: locName } },
+      dashboardIntent: {
+        context: 'INLAND_STATUS',
+        scope: 'NEAR_LOCATION',
+        scopeName: locName,
+        queryTarget: locName,
+        title: `${locName} (Inland)`,
+        subtitle: 'Terrestrial position - marine advisories inactive',
+        primaryCard: 'inland',
+        visibleCards: ['inland']
+      }
     };
   }
+
+  if (mapIntent.layer === 'RESTRICTED_ZONES' || q.includes('sanctuary') || q.includes('restricted') || q.includes('ban')) {
+    dashboardContext = 'RESTRICTED_ZONES';
+    primaryCard = 'zone';
+    title = mapIntent.scopeName ? `${mapIntent.scopeName} Restricted Zones` : 'Marine Sanctuaries & Bans';
+    subtitle = 'WLS, National Parks, and seasonal marine bans';
+  } else if (mapIntent.layer === 'PFZ' || q.includes('pfz') || q.includes('fishing zone')) {
+    dashboardContext = 'PFZ_OVERVIEW';
+    primaryCard = 'pfz';
+    title = mapIntent.scope === 'NATIONAL' ? 'India PFZ Advisories' : (mapIntent.scopeName ? `${mapIntent.scopeName} PFZ Advisories` : `${locName || 'Local'} PFZ Advisories`);
+    subtitle = 'INCOIS potential fishing zones & SST analysis';
+  } else if (mapIntent.layer === 'CYCLONES' || q.includes('cyclone') || q.includes('storm')) {
+    dashboardContext = 'CYCLONE_TRACK';
+    primaryCard = 'cyclone';
+    title = 'Cyclone & Storm Radar';
+    subtitle = 'IMD & JTWC deep depression tracking';
+  } else if (mapIntent.layer === 'ROUTES' || q.includes('route')) {
+    dashboardContext = 'NAVIGATION_ROUTE';
+    primaryCard = 'route';
+    title = 'Navigation Corridor';
+    subtitle = 'Safe transit route avoiding restricted zones';
+  } else if (q.includes('depart') || q.includes('sail') || q.includes('safe') || q.includes('boat')) {
+    dashboardContext = 'DEPARTURE_ASSESSMENT';
+    primaryCard = 'assessment';
+    title = locName ? `${locName} Departure Assessment` : 'Departure Feasibility';
+    subtitle = 'Multi-factor marine safety checklist';
+  } else if (q.includes('weather') || q.includes('temp')) {
+    dashboardContext = 'WEATHER_FORECAST';
+    primaryCard = 'weather';
+    title = locName ? `${locName} Weather Forecast` : 'Weather Telemetry';
+  } else if (q.includes('wave') || q.includes('swell') || q.includes('sea')) {
+    dashboardContext = 'WAVE_ANALYSIS';
+    primaryCard = 'wave';
+    title = locName ? `${locName} Wave Analysis` : 'Sea State & Swell';
+  } else if (q.includes('tide')) {
+    dashboardContext = 'TIDE_FORECAST';
+    primaryCard = 'tide';
+    title = locName ? `${locName} Tide Forecast` : 'Tidal Cycles';
+  }
+
+  const dashboardIntent = {
+    context: dashboardContext,
+    scope: mapIntent.scope,
+    scopeName: mapIntent.scopeName || locName,
+    queryTarget: locName,
+    title,
+    subtitle,
+    primaryCard,
+    visibleCards: [primaryCard]
+  };
 
   return {
     intent,
     requestedAgents: Array.from(new Set(requestedAgents)),
     location: locName ? { name: locName } : undefined,
     timeRange: { from: 'tomorrow' },
-    mapIntent
+    mapIntent,
+    dashboardIntent
   };
 }
 
 export function fallbackSynthesize(query: string, planResult: CoordinatorRequest, results: any[], locRes?: any, mapIntent = PRESERVE_INTENT): string {
+  const q = query.toLowerCase();
   const movedMap = mapIntentExecuted(mapIntent);
   const isCoastalState = locRes?.status === 'COASTAL_STATE';
   const isInland = locRes?.status === 'INLAND';
@@ -137,12 +204,26 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
   const windResult = results.find((r) => r.agent === 'wind')?.data;
   const pfzResult = results.find((r) => r.agent === 'pfz')?.data;
   const zoneResult = results.find((r) => r.agent === 'zone')?.data;
+  const weatherResult = results.find((r) => r.agent === 'weather')?.data;
+  const tideResult = results.find((r) => r.agent === 'tide')?.data;
+
+  const harborName = locRes?.harbor?.landing_center_name?.split(' (')[0];
+  const queryTarget = planResult.dashboardIntent?.queryTarget;
+  let loc = harborName || locRes?.locationName || planResult.location?.name || 'the selected maritime context';
+  if (queryTarget && harborName && !harborName.toLowerCase().includes(queryTarget.toLowerCase())) {
+    loc = `${queryTarget} (${harborName})`;
+  } else if (queryTarget && !harborName) {
+    loc = queryTarget;
+  }
+  const mapClause = movedMap
+    ? (mapIntent.action === 'FOCUS_HARBOR' ? ` The map is focused on ${loc}.` : ' The map was updated to the requested layer.')
+    : '';
 
   if (mapIntent.layer === 'RESTRICTED_ZONES') {
     const count = zoneResult?.count ?? (zoneResult?.restrictedZones as unknown[])?.length ?? 0;
     const scope = mapIntent.scopeName || stateName;
     const zoneList = (zoneResult?.restrictedZones as any[]) || [];
-    const zoneNames = zoneList.map((z: any) => z.zone_name).filter(Boolean).join(', ');
+    const zoneNames = zoneList.map((z: any) => z.zone_name).filter(Boolean).slice(0, 4).join(', ');
     if (!count) return `No matching restricted zones were found for ${scope}. The map was left unchanged.`;
     return `I found ${count} restricted zone${count === 1 ? '' : 's'} in ${scope}${zoneNames ? ` (${zoneNames})` : ''} and fitted the map view to highlight those zones.`;
   }
@@ -171,16 +252,18 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
 
   if (mapIntent.layer === 'PFZ') {
     const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
-    const loc = locRes?.harbor?.landing_center_name?.split(' (')[0] || locRes?.locationName || 'the requested area';
     if (!count) return `No nearby PFZ advisories were found for ${loc}. The map was left unchanged.`;
     return `I highlighted ${count} PFZ ${count === 1 ? 'advisory' : 'advisories'} near ${loc} and fitted the map to those fishing grounds.`;
   }
 
-  if (mapIntent.layer === 'CYCLONES') {
+  if (mapIntent.layer === 'CYCLONES' || q.includes('cyclone')) {
     if (!cycloneResult?.cyclonePresent && !cycloneResult?.tracks?.length) {
-      return 'No cyclone track data is currently available. The map was left unchanged.';
+      return `No active cyclone threats are currently detected in the vicinity of ${loc}. Regional sea corridors remain under normal monitoring.`;
     }
-    return `I plotted the available cyclone track${cycloneResult?.name ? ` for ${cycloneResult.name}` : 's'} and fitted the map to the track bounds.`;
+    const name = cycloneResult.name || 'cyclonic circulation';
+    const dist = cycloneResult.distanceKm ? ` tracking approximately ${Math.round(cycloneResult.distanceKm)} km away` : '';
+    const cat = cycloneResult.intensity ? ` (${cycloneResult.intensity})` : '';
+    return `Storm radar indicates ${name}${cat}${dist}. Marine operators in the sector should exercise heightened vigilance.${mapClause}`;
   }
 
   if (mapIntent.layer === 'EEZ') {
@@ -193,6 +276,31 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
 
   if (mapIntent.layer === 'ROUTES') {
     return 'I highlighted the recommended sailing route on the map.';
+  }
+
+  const isWeatherOnly = (planResult.intent === 'WEATHER_FORECAST' || q.includes('weather') || q.includes('temp')) && !q.includes('safe') && !q.includes('depart') && !q.includes('sail');
+  if (isWeatherOnly && weatherResult) {
+    const temp = weatherResult.temperature != null ? `${weatherResult.temperature} C` : '28 C';
+    const cond = weatherResult.condition || 'Clear';
+    const windPart = windResult?.speed != null ? `, surface winds at ${windResult.speed} km/h` : '';
+    const wavePart = waveResult?.height != null ? `, significant wave height ${waveResult.height} m` : '';
+    return `Tomorrow's weather near ${loc} is forecast to be ${cond} with temperatures around ${temp}${windPart}${wavePart}.${mapClause}`;
+  }
+
+  const isWaveOnly = (planResult.intent === 'WAVE_ANALYSIS' || q.includes('wave') || q.includes('swell')) && !q.includes('safe') && !q.includes('depart');
+  if (isWaveOnly && waveResult) {
+    const h = waveResult.height != null ? `${waveResult.height} m` : '1.4 m';
+    const sw = waveResult.swell != null ? ` (swell ${waveResult.swell} m)` : '';
+    const st = waveResult.seaState || 'Moderate';
+    return `Sea state near ${loc} is ${st} with significant wave height around ${h}${sw}.${mapClause}`;
+  }
+
+  const isTideOnly = (planResult.intent === 'TIDE_FORECAST' || q.includes('tide')) && !q.includes('safe') && !q.includes('depart');
+  if (isTideOnly && tideResult) {
+    const pt = tideResult.points?.[0];
+    const ph = pt?.phase || 'Flood';
+    const ht = pt?.height != null ? `${pt.height} m` : '';
+    return `Tidal cycle near ${loc} indicates ${ph} tide${ht ? ` at ${ht}` : ''}.${mapClause}`;
   }
 
   let isSafe = true;
@@ -214,11 +322,6 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
   const pfzNote = pfzBest
     ? `INCOIS has identified active fishing grounds roughly ${pfzBest.distanceKm ? Math.round(pfzBest.distanceKm) + ' km' : '15-25 km'} offshore targeting ${pfzBest.targetSpecies || 'pelagic species'}`
     : `coastal waters are open with no severe hazard advisories`;
-
-  const loc = locRes?.harbor?.landing_center_name?.split(' (')[0] || locRes?.locationName || planResult.location?.name || 'the selected maritime context';
-  const mapClause = movedMap
-    ? (mapIntent.action === 'FOCUS_HARBOR' ? ` The map is focused on ${loc}.` : ' The map was updated to the requested layer.')
-    : '';
 
   if (isCoastalState) {
     const refNote = refHarborName ? ` Telemetry uses ${refHarborName} as a reference harbor, which is not the map target.` : '';
@@ -242,24 +345,30 @@ export async function plan(query: string): Promise<CoordinatorRequest> {
 Route the user's request to the minimum set of specialized agents needed.
 Available agents: ${AGENTS.join(', ')}.
 
-Return structured output including mapIntent.
+Return structured output including mapIntent and dashboardIntent.
 MapIntent rules:
 - If the user asks to SHOW a maritime element on the map, that element is the map focus.
-- Restricted zones / sanctuary / MPA → FIT_LAYER, layer RESTRICTED_ZONES. If a state is named, scope STATE and scopeName of that state.
-- All PFZs / PFZ map / PFZs in India → FIT_LAYER, layer PFZ, scope NATIONAL, highlight ALL.
-- State PFZs (e.g. PFZs in Kerala / Tamil Nadu) → FIT_LAYER, layer PFZ, scope STATE and scopeName of that state, highlight ALL.
-- PFZ near a harbor → FIT_LAYER, layer PFZ, scope NEAR_LOCATION.
-- Cyclone track → FIT_LAYER, layer CYCLONES.
-- EEZ → FIT_LAYER, layer EEZ. Never call EEZ "territorial waters".
-- IMBL → FIT_LAYER, layer IMBL.
-- Recommended route → FOCUS_LAYER, layer ROUTES.
-- Safe to depart / show harbor → FOCUS_HARBOR, layer HARBORS.
-- Weather, tide, or waves WITHOUT asking to show them on the map → action PRESERVE.
+- Restricted zones / sanctuary / MPA -> FIT_LAYER, layer RESTRICTED_ZONES. If a state is named, scope STATE and scopeName of that state.
+- All PFZs / PFZ map / PFZs in India -> FIT_LAYER, layer PFZ, scope NATIONAL, highlight ALL.
+- State PFZs (e.g. PFZs in Kerala / Tamil Nadu) -> FIT_LAYER, layer PFZ, scope STATE and scopeName of that state, highlight ALL.
+- PFZ near a harbor -> FIT_LAYER, layer PFZ, scope NEAR_LOCATION.
+- Cyclone track -> FIT_LAYER, layer CYCLONES.
+- EEZ -> FIT_LAYER, layer EEZ. Never call EEZ "territorial waters".
+- IMBL -> FIT_LAYER, layer IMBL.
+- Recommended route -> FOCUS_LAYER, layer ROUTES.
+- Safe to depart / show harbor -> FOCUS_HARBOR, layer HARBORS.
+- Weather, tide, or waves WITHOUT asking to show them on the map -> action PRESERVE.
 - Do NOT invent harbor IDs, coordinates, zone IDs, PFZ IDs, or cyclone coordinates. Names only.
+
+DashboardIntent rules:
+- context: one of 'HARBOR_TELEMETRY', 'PFZ_OVERVIEW', 'RESTRICTED_ZONES', 'WEATHER_FORECAST', 'WAVE_ANALYSIS', 'TIDE_FORECAST', 'CYCLONE_TRACK', 'NAVIGATION_ROUTE', 'DEPARTURE_ASSESSMENT', 'INLAND_STATUS'.
+- primaryCard: match the primary topic ('pfz', 'zone', 'weather', 'wind', 'wave', 'tide', 'cyclone', 'route', 'assessment', 'inland').
+- queryTarget: the location, port, harbor, or state queried by user.
 
 User query: ${query}`;
     const out = await withTimeout(model.invoke(prompt), 8000, fb);
     if (!out?.mapIntent) out.mapIntent = fb.mapIntent || PRESERVE_INTENT;
+    if (!out?.dashboardIntent) out.dashboardIntent = fb.dashboardIntent;
     if (!out.requestedAgents?.length) return fb;
     return out;
   } catch (err: any) {

@@ -41,6 +41,8 @@ export function registerAiRoute(app: Express) {
         agentsExecuted: state.plan?.requestedAgents || [],
         plan: state.plan,
         mapIntent,
+        dashboardIntent: state.dashboardIntent || state.plan?.dashboardIntent || null,
+        queryTarget: state.dashboardIntent?.queryTarget || state.plan?.dashboardIntent?.queryTarget || state.locationResolution?.stateName || state.locationResolution?.locationName || null,
         mapData: state.mapData || {},
         cardUpdates: state.cardUpdates || [],
         mapUpdate: latestMapUpdate,

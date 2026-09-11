@@ -42,6 +42,10 @@ export default function App() {
   const [liveWeatherData, setLiveWeatherData] = useState(null)
   const [dynamicAdvisories, setDynamicAdvisories] = useState(null)
   const [dynamicZones, setDynamicZones] = useState(null)
+  const [dashboardIntent, setDashboardIntent] = useState(null)
+  const [dashboardContext, setDashboardContext] = useState('HARBOR_TELEMETRY')
+  const [queryTarget, setQueryTarget] = useState(null)
+  const [cardUpdates, setCardUpdates] = useState([])
 
   const isMobile = useIsMobile(768)
 
@@ -183,6 +187,16 @@ export default function App() {
     )
   }, [harbors, selectedHarborId])
 
+  function handleUpdateDashboardIntent(di) {
+    setDashboardIntent(di)
+    if (di?.context) {
+      setDashboardContext(di.context)
+    }
+    if (di?.queryTarget) {
+      setQueryTarget(di.queryTarget)
+    }
+  }
+
   // Reset selected route and target focus when harbor changes
   function handleSelectHarbor(id) {
     setSelectedHarborId(id)
@@ -191,6 +205,10 @@ export default function App() {
     setMapFocusTarget(null)
     setDynamicAdvisories(null)
     setDynamicZones(null)
+    setDashboardContext('HARBOR_TELEMETRY')
+    setQueryTarget(null)
+    setCardUpdates([])
+    setDashboardIntent(null)
   }
 
   // Switch to user location view
@@ -198,6 +216,10 @@ export default function App() {
     setIsUserLocationActive(true)
     setDynamicAdvisories(null)
     setDynamicZones(null)
+    setDashboardContext('INLAND_STATUS')
+    setQueryTarget(userLocation?.label || 'User Location')
+    setCardUpdates([])
+    setDashboardIntent(null)
     if (userLocation?.lat && userLocation?.lon) {
       setMapFocusTarget({
         lat: Number(userLocation.lat),
@@ -217,9 +239,13 @@ export default function App() {
   // Set an inland query location on dashboard
   function handleSetInlandLocation(inlandObj) {
     setIsUserLocationActive(true)
+    setDashboardContext('INLAND_STATUS')
+    setCardUpdates([])
+    setDashboardIntent(null)
     const lat = inlandObj.lat || (userLocation?.lat ? Number(userLocation.lat) : 26.9124)
     const lon = inlandObj.lon || (userLocation?.lon ? Number(userLocation.lon) : 75.7873)
     const label = inlandObj.label || (inlandObj.state ? `${inlandObj.place || inlandObj.city}, ${inlandObj.state}` : (inlandObj.place || 'Inland Position'))
+    setQueryTarget(label)
     setUserLocation({
       lat,
       lon,
@@ -347,23 +373,30 @@ export default function App() {
     return globalAssessment
   }, [isUserLocationActive, hasLiveMarineData, userLocation, liveWeatherData, selectedHarbor, globalAssessment])
 
+  // Context-aware operational status distinguishing user queries from departure clearance
+  const operationalStatus = useMemo(() => {
+    if (dashboardContext === 'PFZ_OVERVIEW' && queryTarget) {
+      return `${queryTarget.toUpperCase()} · PFZ ACTIVE`
+    }
+    if (dashboardContext === 'RESTRICTED_ZONES' && queryTarget) {
+      return `${queryTarget.toUpperCase()} · RESTRICTED ZONES`
+    }
+    if (dashboardContext === 'CYCLONE_TRACK') {
+      return 'CYCLONE RADAR ACTIVE'
+    }
+    if (isUserLocationActive && !hasLiveMarineData) {
+      return 'INLAND POSITION CLEAR'
+    }
+    return activeAssessment?.decisionLabel || 'SAFE TO DEPART'
+  }, [dashboardContext, queryTarget, isUserLocationActive, hasLiveMarineData, activeAssessment])
+
   const loading = harborsLoading || safetyLoading || tidesLoading || pfzLoading || navigationLoading || boundariesLoading
   const hasApiError = Boolean(harborsError || safetyError || tidesError || pfzError || navigationError || boundariesError)
 
-  // Mobile Viewport Render (< 768px)
+  // Mobile Viewport Render (< 768px) - Clean, Single Header, No Scroll
   if (isMobile) {
     return (
       <div className="app-shell app-shell--mobile">
-        <TopBar
-          harbors={harbors}
-          selectedHarborId={selectedHarborId}
-          onSelectHarbor={handleSelectHarbor}
-          onSelectUserLocation={handleSelectUserLocation}
-          isUserLocationActive={isUserLocationActive}
-          userLocationTag={userLocationTag}
-          hasLiveMarineData={hasLiveMarineData}
-        />
-
         <MobileLayout
           harbor={selectedHarbor}
           harbors={harbors}
@@ -378,6 +411,10 @@ export default function App() {
           safetyData={effectiveSafetyData}
           safetyHistory={safetyHistory}
           assessment={activeAssessment}
+          operationalStatus={operationalStatus}
+          dashboardContext={dashboardContext}
+          queryTarget={queryTarget}
+          cardUpdates={cardUpdates}
           onOpenAssessment={() => setAssessmentModalOpen(true)}
           loading={loading}
           hasApiError={hasApiError}
@@ -397,6 +434,9 @@ export default function App() {
           onMapFocus={setMapFocusTarget}
           onUpdateDynamicAdvisories={setDynamicAdvisories}
           onUpdateDynamicZones={setDynamicZones}
+          onUpdateDashboardIntent={handleUpdateDashboardIntent}
+          onUpdateCardUpdates={setCardUpdates}
+          onUpdateQueryTarget={setQueryTarget}
         />
 
         {assessmentModalOpen && (
@@ -438,6 +478,7 @@ export default function App() {
           userLocation={userLocation}
           safetyData={effectiveSafetyData}
           assessment={activeAssessment}
+          operationalStatus={operationalStatus}
           onOpenAssessment={() => setAssessmentModalOpen(true)}
           loading={loading}
           hasApiError={hasApiError}
@@ -475,6 +516,12 @@ export default function App() {
             hasLiveMarineData={hasLiveMarineData}
             userLocation={userLocation}
             isUserLocationActive={isUserLocationActive}
+            dashboardContext={dashboardContext}
+            queryTarget={queryTarget}
+            cardUpdates={cardUpdates}
+            advisories={effectiveAdvisories}
+            restrictedZones={effectiveZones}
+            routes={routes}
           />
         </div>
       </main>
@@ -489,6 +536,7 @@ export default function App() {
         messages={messages}
         onAddMessage={handleAddMessage}
         assessment={activeAssessment}
+        operationalStatus={operationalStatus}
         selectedRoute={activeAssessment?.selectedRoute}
         onOpenAssessment={() => setAssessmentModalOpen(true)}
         hasApiError={hasApiError}
@@ -503,6 +551,9 @@ export default function App() {
         onMapFocus={setMapFocusTarget}
         onUpdateDynamicAdvisories={setDynamicAdvisories}
         onUpdateDynamicZones={setDynamicZones}
+        onUpdateDashboardIntent={handleUpdateDashboardIntent}
+        onUpdateCardUpdates={setCardUpdates}
+        onUpdateQueryTarget={setQueryTarget}
       />
 
       {/* Unified Departure & Route Assessment Breakdown Modal */}

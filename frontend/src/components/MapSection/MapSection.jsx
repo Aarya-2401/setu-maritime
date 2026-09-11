@@ -463,7 +463,7 @@ function MapLayers({
                 dashArray: isHighlighted ? '3, 3' : '5, 5',
                 weight: isHighlighted ? 3.5 : (isPFZActive ? 1 : 1.8),
               }}
-              interactive={!isPFZActive || !isGiantBan}
+              interactive={!isPFZActive}
             >
               <Tooltip sticky direction="bottom">
                 <span style={{ color: isHighlighted ? '#be123c' : '#9f1239', fontWeight: 700 }}>
@@ -539,6 +539,7 @@ function MapLayers({
                 fillOpacity: isTargetHighlighted ? 0.95 : (isSelected ? 0.85 : 0.65),
                 weight: isTargetHighlighted ? 2.5 : 1.5,
               }}
+              interactive={mapFocusTarget?.layer !== 'RESTRICTED_ZONES'}
               eventHandlers={{
                 click: () => {
                   if (onSelectRoute) onSelectRoute(advId)

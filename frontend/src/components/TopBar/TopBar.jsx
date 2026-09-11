@@ -14,6 +14,7 @@ export default function TopBar({
   onSelectHarbor,
   safetyData,
   assessment,
+  operationalStatus,
   onOpenAssessment,
   loading,
   hasApiError,
@@ -166,8 +167,8 @@ export default function TopBar({
           title="Click to inspect operational factors and route assessment (Shortcut: A)"
         >
           <span className="topbar__decision-dot" />
-          <span className="topbar__decision-text" title={assessment?.decisionLabel}>
-            {loading ? 'SYNCING...' : assessment?.decisionLabel || 'SAFE TO DEPART'}
+          <span className="topbar__decision-text" title={operationalStatus || assessment?.decisionLabel}>
+            {loading ? 'SYNCING...' : operationalStatus || assessment?.decisionLabel || 'SAFE TO DEPART'}
           </span>
           <span className="topbar__why-tag">Why?</span>
         </button>

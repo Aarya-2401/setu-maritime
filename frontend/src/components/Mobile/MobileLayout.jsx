@@ -104,6 +104,10 @@ export default function MobileLayout({
   safetyData,
   safetyHistory,
   assessment,
+  operationalStatus,
+  dashboardContext = 'HARBOR_TELEMETRY',
+  queryTarget = null,
+  cardUpdates = [],
   onOpenAssessment,
   loading,
   hasApiError,
@@ -122,7 +126,10 @@ export default function MobileLayout({
   onTriggerKeralaDemo,
   onMapFocus,
   onUpdateDynamicAdvisories,
-  onUpdateDynamicZones
+  onUpdateDynamicZones,
+  onUpdateDashboardIntent,
+  onUpdateCardUpdates,
+  onUpdateQueryTarget
 }) {
   const [activeNav, setActiveNav] = useState('home')
   const [activeModal, setActiveModal] = useState(null)
@@ -371,19 +378,20 @@ export default function MobileLayout({
     try {
       const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        if (aiResponse.mapIntent || aiResponse.mapUpdate) {
-          const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate
-          mobilePreviousMapIntentRef.current = effectiveIntent
-          executeMapIntent(effectiveIntent, aiResponse, {
-            onSelectHarbor,
-            onMapFocus,
-            onSetInlandLocation,
-            onSelectUserLocation,
-            onDisengageInland,
-            onUpdateDynamicAdvisories,
-            onUpdateDynamicZones
-          })
-        }
+        const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate || { action: 'PRESERVE' }
+        mobilePreviousMapIntentRef.current = effectiveIntent
+        executeMapIntent(effectiveIntent, aiResponse, {
+          onSelectHarbor,
+          onMapFocus,
+          onSetInlandLocation,
+          onSelectUserLocation,
+          onDisengageInland,
+          onUpdateDynamicAdvisories,
+          onUpdateDynamicZones,
+          onUpdateDashboardIntent,
+          onUpdateCardUpdates,
+          onUpdateQueryTarget
+        })
 
         const reply = {
           id: getMessageUUID(),
@@ -497,100 +505,230 @@ export default function MobileLayout({
             )}
           </select>
         </div>
+
+        <button
+          type="button"
+          className={`mobile-header__decision-btn mobile-decision-btn--${assessment?.tone || 'good'}`}
+          onClick={() => setActiveNav('alerts')}
+          title="View Departure & Route Assessment Breakdown"
+        >
+          <span className="mobile-decision-dot" />
+          <span className="mobile-decision-txt">
+            {operationalStatus || assessment?.decisionLabel || 'SAFE'}
+          </span>
+        </button>
       </header>
 
-      {/* 1b. Operational Decision / Safety Clearance Banner (Matches Desktop TopBar) */}
-      {activeNav === 'home' && (
-        <div className="mobile-clearance-wrap">
-          <button
-            type="button"
-            className={`mobile-decision-btn mobile-decision-btn--${assessment?.tone || 'good'}`}
-            onClick={() => setActiveNav('alerts')}
-            title="View Departure & Route Assessment Breakdown"
-          >
-            <span className="mobile-decision-dot" />
-            <span className="mobile-decision-txt">
-              {assessment?.decisionLabel || 'SAFE TO DEPART'}
-            </span>
-            <span className="mobile-decision-cta">WHY?</span>
-          </button>
+      {/* 2. Live Map Section (Map First on Home and Maximized on Map Tab) */}
+      <section
+        className={`mobile-map-section ${activeNav === 'map' ? 'mobile-map-section--maximized mobile-tab-view' : ''}`}
+        id="mobile-map-section"
+        aria-label="Live Maritime Map"
+      >
+        <div className="mobile-map-header">
+          <div className="mobile-map-header__titles">
+            <h3 className="mobile-map-title">
+              {activeNav === 'map' ? 'Expanded Maritime Chart' : 'Live Map'}
+            </h3>
+            <p className="mobile-map-subtitle">
+              {hasLiveMarineData
+                ? `Wind · Waves · Fishing zones near ${locationText}`
+                : `Weather · Surface Winds · Radar near ${locationText}`}
+            </p>
+          </div>
+          <div className="mobile-map-header__actions">
+            <div className="mobile-live-badge">
+              <span className="mobile-live-dot" />
+              <span className="mobile-live-text">Live</span>
+            </div>
+            {activeNav === 'home' ? (
+              <button
+                type="button"
+                className="mobile-expand-btn"
+                onClick={() => setActiveNav('map')}
+                title="Expand Map to full screen"
+                aria-label="Expand Map"
+              >
+                <IconMaximize size={13} color="#38bdf8" />
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="mobile-expand-btn"
+                onClick={() => setActiveNav('home')}
+                title="Return to Home Overview"
+                aria-label="Minimize Map"
+              >
+                <IconMinimize size={13} color="#38bdf8" />
+              </button>
+            )}
+          </div>
         </div>
-      )}
 
-      {/* 2. Telemetry Information Capsules (Home Tab Only) */}
+        <div className={`mobile-map-card ${activeNav === 'map' ? 'mobile-map-card--expanded' : ''}`}>
+          <MapSection
+            harbor={harbor}
+            harbors={harbors}
+            onSelectHarbor={onSelectHarbor}
+            safetyData={safetyData}
+            advisories={advisories}
+            routes={routes}
+            restrictedZones={restrictedZones}
+            maritimeBoundaries={maritimeBoundaries}
+            selectedRouteId={selectedRouteId || assessment?.selectedRoute?.advisory_id}
+            onSelectRoute={onSelectRoute}
+            assessment={assessment}
+            onOpenAssessment={() => setActiveNav('alerts')}
+            loading={loading}
+            hasApiError={hasApiError}
+            mapFocusTarget={mapFocusTarget}
+            userLocation={userLocation}
+            isUserLocationActive={isUserLocationActive}
+            hasLiveMarineData={hasLiveMarineData}
+            liveWeather={liveWeather}
+            isMobile={true}
+          />
+        </div>
+      </section>
+
+      {/* 3. Dynamic Context Cards Rail (Home Tab Only) */}
       {activeNav === 'home' && (
-        <section className={`mobile-telemetry-capsules mobile-tab-view${!hasLiveMarineData ? ' mobile-telemetry-capsules--two' : ''}`} aria-label="Harbor telemetry capsules">
-          <button
-            type="button"
-            className="mobile-telemetry-capsule"
-            onClick={() => setActiveModal('weather')}
-            title="Weather telemetry: tap for full observation details"
-            aria-label="View Weather Details"
-          >
-            <span className="mobile-capsule-icon">
-              <IconCloud size={14} color="#38bdf8" />
-            </span>
-            <div className="mobile-capsule-info">
-              <span className="mobile-capsule-val">{tempVal}</span>
-              <span className="mobile-capsule-lbl">Weather</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            className="mobile-telemetry-capsule"
-            onClick={() => setActiveModal('wind')}
-            title="Wind dynamics: tap for Beaufort scale and advisory"
-            aria-label="View Wind Details"
-          >
-            <span className="mobile-capsule-icon">
-              <IconWind size={14} color="#38bdf8" />
-            </span>
-            <div className="mobile-capsule-info">
-              <span className="mobile-capsule-val">{windVal}</span>
-              <span className="mobile-capsule-lbl">Wind</span>
-            </div>
-          </button>
-
-          {hasLiveMarineData && (
+        <section className="mobile-context-cards-rail mobile-tab-view" aria-label="Contextual telemetry rail">
+          {dashboardContext === 'RESTRICTED_ZONES' ? (
+            <>
+              <div className="mobile-telemetry-capsule" style={{ borderColor: '#f43f5e77', minWidth: '110px' }}>
+                <span className="mobile-capsule-icon">
+                  <IconShield size={13} color="#f43f5e" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val" style={{ color: '#fb7185' }}>{restrictedZones?.length || 0} Zones</span>
+                  <span className="mobile-capsule-lbl">{queryTarget || 'Restricted'}</span>
+                </div>
+              </div>
+              <div className="mobile-telemetry-capsule" style={{ borderColor: 'rgba(56, 189, 248, 0.3)', minWidth: '110px' }}>
+                <span className="mobile-capsule-icon">
+                  <IconCompass size={13} color="#38bdf8" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val">5.0 NM</span>
+                  <span className="mobile-capsule-lbl">Buffer Req</span>
+                </div>
+              </div>
+              <div className="mobile-telemetry-capsule" onClick={() => setActiveModal('weather')} style={{ minWidth: '95px' }}>
+                <span className="mobile-capsule-icon">
+                  <IconCloud size={13} color="#38bdf8" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val">{tempVal}</span>
+                  <span className="mobile-capsule-lbl">Weather</span>
+                </div>
+              </div>
+            </>
+          ) : dashboardContext === 'PFZ_OVERVIEW' ? (
+            <>
+              <div className="mobile-telemetry-capsule" style={{ borderColor: 'rgba(53, 201, 232, 0.45)', minWidth: '110px' }}>
+                <span className="mobile-capsule-icon">
+                  <IconCompass size={13} color="#35c9e8" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val" style={{ color: '#38bdf8' }}>{advisories?.length || 0} PFZs</span>
+                  <span className="mobile-capsule-lbl">{queryTarget || 'INCOIS Feed'}</span>
+                </div>
+              </div>
+              <div className="mobile-telemetry-capsule" style={{ borderColor: 'rgba(16, 185, 129, 0.35)', minWidth: '110px' }}>
+                <span className="mobile-capsule-icon">
+                  <IconWave size={13} color="#10b981" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val">Fronts Active</span>
+                  <span className="mobile-capsule-lbl">SST Boundary</span>
+                </div>
+              </div>
+              <div className="mobile-telemetry-capsule" onClick={() => setActiveModal('weather')} style={{ minWidth: '95px' }}>
+                <span className="mobile-capsule-icon">
+                  <IconCloud size={13} color="#38bdf8" />
+                </span>
+                <div className="mobile-capsule-info">
+                  <span className="mobile-capsule-val">{tempVal}</span>
+                  <span className="mobile-capsule-lbl">Weather</span>
+                </div>
+              </div>
+            </>
+          ) : (
             <>
               <button
                 type="button"
                 className="mobile-telemetry-capsule"
-                onClick={() => setActiveModal('waves')}
-                title="Wave and sea state: tap for hourly sequence and swell profile"
-                aria-label="View Waves Details"
+                onClick={() => setActiveModal('weather')}
+                title="Weather telemetry"
+                aria-label="View Weather Details"
               >
                 <span className="mobile-capsule-icon">
-                  <IconWave size={14} color="#38bdf8" />
+                  <IconCloud size={13} color="#38bdf8" />
                 </span>
                 <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">{waveVal}</span>
-                  <span className="mobile-capsule-lbl">Waves</span>
+                  <span className="mobile-capsule-val">{tempVal}</span>
+                  <span className="mobile-capsule-lbl">Air</span>
                 </div>
               </button>
 
               <button
                 type="button"
                 className="mobile-telemetry-capsule"
-                onClick={() => setActiveModal('tide')}
-                title="Tidal cycle: tap for harmonic predictions and high/low peaks"
-                aria-label="View Tide Details"
+                onClick={() => setActiveModal('wind')}
+                title="Wind dynamics"
+                aria-label="View Wind Details"
               >
                 <span className="mobile-capsule-icon">
-                  <IconTide size={14} color="#38bdf8" />
+                  <IconWind size={13} color="#38bdf8" />
                 </span>
                 <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">{tideVal}</span>
-                  <span className="mobile-capsule-lbl">Tide</span>
+                  <span className="mobile-capsule-val">{windVal}</span>
+                  <span className="mobile-capsule-lbl">Wind</span>
                 </div>
               </button>
+
+              {hasLiveMarineData && (
+                <>
+                  <button
+                    type="button"
+                    className="mobile-telemetry-capsule"
+                    onClick={() => setActiveModal('waves')}
+                    title="Wave state"
+                    aria-label="View Waves Details"
+                  >
+                    <span className="mobile-capsule-icon">
+                      <IconWave size={13} color="#38bdf8" />
+                    </span>
+                    <div className="mobile-capsule-info">
+                      <span className="mobile-capsule-val">{waveVal}</span>
+                      <span className="mobile-capsule-lbl">Wave</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="mobile-telemetry-capsule"
+                    onClick={() => setActiveModal('tide')}
+                    title="Tidal cycle"
+                    aria-label="View Tide Details"
+                  >
+                    <span className="mobile-capsule-icon">
+                      <IconTide size={13} color="#38bdf8" />
+                    </span>
+                    <div className="mobile-capsule-info">
+                      <span className="mobile-capsule-val">{tideVal}</span>
+                      <span className="mobile-capsule-lbl">Tide</span>
+                    </div>
+                  </button>
+                </>
+              )}
             </>
           )}
         </section>
       )}
 
-      {/* 3. Dedicated Mobile Alerts & Departure Assessment View */}
+      {/* Dedicated Mobile Alerts & Departure Assessment View */}
       {activeNav === 'alerts' && (
         <section className="mobile-tab-view mobile-alerts-view" aria-label="Departure & Route Assessment">
           <div className="mobile-alerts-header">
@@ -719,78 +857,6 @@ export default function MobileLayout({
           </div>
         </section>
       )}
-
-      {/* 4. Live Map Section (Kept mounted for Home and Map tabs to preserve Leaflet tile caching) */}
-      <section
-        className={`mobile-map-section ${activeNav === 'map' ? 'mobile-map-section--maximized mobile-tab-view' : ''}`}
-        id="mobile-map-section"
-        aria-label="Live Maritime Map"
-      >
-        <div className="mobile-map-header">
-          <div className="mobile-map-header__titles">
-            <h3 className="mobile-map-title">
-              {activeNav === 'map' ? 'Expanded Maritime Chart' : 'Live Map'}
-            </h3>
-            <p className="mobile-map-subtitle">
-              {hasLiveMarineData
-                ? `Wind · Waves · Fishing zones near ${locationText}`
-                : `Weather · Surface Winds · Radar near ${locationText}`}
-            </p>
-          </div>
-          <div className="mobile-map-header__actions">
-            <div className="mobile-live-badge">
-              <span className="mobile-live-dot" />
-              <span className="mobile-live-text">Live</span>
-            </div>
-            {activeNav === 'home' ? (
-              <button
-                type="button"
-                className="mobile-expand-btn"
-                onClick={() => setActiveNav('map')}
-                title="Expand Map to full screen"
-                aria-label="Expand Map"
-              >
-                <IconMaximize size={13} color="#38bdf8" />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="mobile-expand-btn"
-                onClick={() => setActiveNav('home')}
-                title="Return to Home Overview"
-                aria-label="Minimize Map"
-              >
-                <IconMinimize size={13} color="#38bdf8" />
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className={`mobile-map-card ${activeNav === 'map' ? 'mobile-map-card--expanded' : ''}`}>
-          <MapSection
-            harbor={harbor}
-            harbors={harbors}
-            onSelectHarbor={onSelectHarbor}
-            safetyData={safetyData}
-            advisories={advisories}
-            routes={routes}
-            restrictedZones={restrictedZones}
-            maritimeBoundaries={maritimeBoundaries}
-            selectedRouteId={selectedRouteId || assessment?.selectedRoute?.advisory_id}
-            onSelectRoute={onSelectRoute}
-            assessment={assessment}
-            onOpenAssessment={() => setActiveNav('alerts')}
-            loading={loading}
-            hasApiError={hasApiError}
-            mapFocusTarget={mapFocusTarget}
-            userLocation={userLocation}
-            isUserLocationActive={isUserLocationActive}
-            hasLiveMarineData={hasLiveMarineData}
-            liveWeather={liveWeather}
-            isMobile={true}
-          />
-        </div>
-      </section>
 
       {/* 5. SETU Chatbot Section (Kept mounted for Home and Chat tabs to preserve message history) */}
       <section
@@ -981,9 +1047,9 @@ export default function MobileLayout({
                 )}
               </div>
 
-              {/* Interactive Suggestion Pills in Active Conversation */}
+              {/* Interactive Suggestion Pills in Active Conversation (1-3 Contextual Action Chips) */}
               <div className="mobile-chat-suggestions" role="group" aria-label="Quick suggested queries">
-                {activeSuggestions.map((sug, idx) => (
+                {activeSuggestions.slice(0, 3).map((sug, idx) => (
                   <button
                     key={idx}
                     type="button"

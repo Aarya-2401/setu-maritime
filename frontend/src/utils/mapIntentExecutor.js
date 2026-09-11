@@ -42,8 +42,35 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     onSetInlandLocation,
     onDisengageInland,
     onUpdateDynamicAdvisories,
-    onUpdateDynamicZones
+    onUpdateDynamicZones,
+    onUpdateDashboardIntent,
+    onUpdateCardUpdates,
+    onUpdateQueryTarget
   } = handlers;
+
+  // Always propagate dashboard intent, card updates, and query target to maintain UI consistency
+  if (onUpdateDashboardIntent) {
+    if (payload?.dashboardIntent) {
+      onUpdateDashboardIntent(payload.dashboardIntent);
+    } else if (intent.layer === 'RESTRICTED_ZONES') {
+      onUpdateDashboardIntent({ context: 'RESTRICTED_ZONES', queryTarget: intent.scopeName });
+    } else if (intent.layer === 'PFZ') {
+      onUpdateDashboardIntent({ context: 'PFZ_OVERVIEW', queryTarget: intent.scopeName });
+    } else if (intent.layer === 'CYCLONES') {
+      onUpdateDashboardIntent({ context: 'CYCLONE_TRACK' });
+    } else if (intent.layer === 'ROUTES') {
+      onUpdateDashboardIntent({ context: 'NAVIGATION_ROUTE' });
+    }
+  }
+
+  if (onUpdateCardUpdates && payload?.cardUpdates) {
+    onUpdateCardUpdates(payload.cardUpdates);
+  }
+
+  if (onUpdateQueryTarget) {
+    const qTarget = payload?.queryTarget || payload?.dashboardIntent?.queryTarget || intent?.scopeName || intent?.location?.name;
+    if (qTarget) onUpdateQueryTarget(qTarget);
+  }
 
   const action = intent.action;
   const layer = intent.layer;

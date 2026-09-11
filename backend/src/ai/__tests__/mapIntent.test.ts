@@ -10,7 +10,7 @@ import {
 } from '../mapIntent';
 import { resolveLocation, LocationResolution } from '../db';
 import type { AgentResult } from '../types';
-import { runPfz } from '../agents';
+import { runPfz, runZone, runWeather, runCyclone } from '../agents';
 import { fallbackPlan, fallbackSynthesize } from '../coordinator';
 
 test('1. MapIntent schema validation', () => {
@@ -345,5 +345,116 @@ test('13. Query: PFZs in Kerala (ONE STORY: MapIntent, CardIntent, and Answer)',
   const synthesized = fallbackSynthesize(query, plan, [pfzResult], locRes, normalized);
   assert.ok(synthesized.includes('Kerala waters'), 'Answer must mention Kerala waters');
   assert.ok(!synthesized.includes('Cochin Fishing Harbor (Thoppumpady)'), 'Answer must not collapse to single harbor name');
+});
+
+test('14. Query: Show PFZs near Mangalore on the map (Arbitrary Harbor PFZ)', async () => {
+  const query = 'Show PFZs near Mangalore on the map';
+  const inferred = inferMapIntentFromQuery(query);
+
+  assert.equal(inferred.action, 'FIT_LAYER');
+  assert.equal(inferred.layer, 'PFZ');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.mapIntent?.layer, 'PFZ');
+  assert.equal(plan.dashboardIntent?.context, 'PFZ_OVERVIEW');
+  assert.equal(plan.dashboardIntent?.queryTarget, 'Mangalore');
+
+  const pfzResult = await runPfz({
+    query,
+    location: { name: 'Mangalore' },
+    locationType: 'HARBOR',
+    mapIntent: inferred
+  });
+
+  assert.equal(pfzResult.status, 'success');
+  const recs = ((pfzResult.data as any).recommendations as any[]) || [];
+  assert.ok(recs.length > 0, 'Must return PFZ advisories for Mangalore');
+
+  assert.ok(pfzResult.cardUpdates.length > 0, 'Must produce PFZ card update');
+  const pfzCard = pfzResult.cardUpdates[0] as any;
+  assert.ok(pfzCard.location.includes('Mangalore') || pfzCard.location.includes('Karnataka'), 'Card location must reflect Mangalore or Karnataka');
+});
+
+test('15. Query: Show restricted zones near Paradip (Arbitrary Harbor Sanctuary Resolution)', async () => {
+  const query = 'Show restricted zones near Paradip';
+  const inferred = inferMapIntentFromQuery(query);
+
+  assert.equal(inferred.action, 'FIT_LAYER');
+  assert.equal(inferred.layer, 'RESTRICTED_ZONES');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.mapIntent?.layer, 'RESTRICTED_ZONES');
+  assert.equal(plan.dashboardIntent?.context, 'RESTRICTED_ZONES');
+  assert.equal(plan.dashboardIntent?.queryTarget, 'Paradip');
+
+  const zoneResult = await runZone({
+    query,
+    location: { name: 'Paradip' },
+    locationType: 'HARBOR',
+    mapIntent: inferred
+  });
+
+  assert.equal(zoneResult.status, 'success');
+  const zones = ((zoneResult.data as any).restrictedZones as any[]) || [];
+  assert.ok(zones.length > 0, 'Must find restricted zones near Paradip (e.g. Gahirmatha)');
+  const zoneNames = zones.map((z: any) => z.zone_name || z.name);
+  assert.ok(
+    zoneNames.some((n: string) => n.includes('Gahirmatha') || n.includes('Bhitarkanika') || n.includes('East Coast')),
+    'Must include Odisha sanctuaries near Paradip'
+  );
+
+  assert.ok(zoneResult.cardUpdates.length > 0, 'Must produce zone card update');
+  const zoneCard = zoneResult.cardUpdates[0] as any;
+  assert.equal(zoneCard.cardId, 'zone');
+});
+
+test('16. Query: What will the weather be tomorrow near Mumbai? (Arbitrary Harbor Weather & PRESERVE Map)', async () => {
+  const query = 'What will the weather be tomorrow near Mumbai?';
+  const inferred = inferMapIntentFromQuery(query);
+
+  assert.equal(inferred.action, 'PRESERVE');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.mapIntent?.action, 'PRESERVE');
+  assert.equal(plan.dashboardIntent?.context, 'WEATHER_FORECAST');
+  assert.equal(plan.dashboardIntent?.queryTarget, 'Mumbai');
+
+  const weatherResult = await runWeather({
+    query,
+    location: { name: 'Mumbai' },
+    locationType: 'HARBOR',
+    mapIntent: inferred
+  });
+
+  assert.equal(weatherResult.status, 'success');
+  const locRes = await resolveLocation('Mumbai');
+  const synthesized = fallbackSynthesize(query, plan, [weatherResult], locRes, inferred);
+  assert.ok(synthesized.includes('Mumbai'), 'Answer must mention Mumbai');
+  assert.ok(!synthesized.includes('Veraval'), 'Answer must not default to Veraval');
+});
+
+test('17. Query: Show cyclone activity near Odisha (Arbitrary State Cyclone Tracking)', async () => {
+  const query = 'Show cyclone activity near Odisha';
+  const inferred = inferMapIntentFromQuery(query);
+
+  assert.equal(inferred.action, 'FIT_LAYER');
+  assert.equal(inferred.layer, 'CYCLONES');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.mapIntent?.layer, 'CYCLONES');
+  assert.equal(plan.dashboardIntent?.context, 'CYCLONE_TRACK');
+  assert.equal(plan.dashboardIntent?.queryTarget, 'Odisha');
+
+  const cycloneResult = await runCyclone({
+    query,
+    location: { name: 'Odisha' },
+    locationType: 'COASTAL_STATE',
+    mapIntent: inferred
+  });
+
+  assert.equal(cycloneResult.status, 'success');
+  assert.ok(cycloneResult.cardUpdates.length > 0, 'Must produce cyclone card update');
+  const cycloneCard = cycloneResult.cardUpdates[0] as any;
+  assert.equal(cycloneCard.cardId, 'cyclone');
 });
 

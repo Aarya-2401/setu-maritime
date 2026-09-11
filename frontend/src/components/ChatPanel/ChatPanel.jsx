@@ -65,6 +65,9 @@ export default function ChatPanel({
   onMapFocus,
   onUpdateDynamicAdvisories,
   onUpdateDynamicZones,
+  onUpdateDashboardIntent,
+  onUpdateCardUpdates,
+  onUpdateQueryTarget,
   isMobile = false
 }) {
   const [input, setInput] = useState('')
@@ -93,8 +96,13 @@ export default function ChatPanel({
     setTyping(true)
 
     const context = {
-      previousMapIntent: previousMapIntentRef.current,
       selectedHarborId: harbor?.harbor_id,
+      previousMapIntent: previousMapIntentRef.current,
+      previousLocation: harbor ? {
+        name: harbor.landing_center_name,
+        latitude: Number(harbor.latitude),
+        longitude: Number(harbor.longitude)
+      } : undefined,
       userLocation: userLocation?.lat && userLocation?.lon ? {
         latitude: Number(userLocation.lat),
         longitude: Number(userLocation.lon),
@@ -109,19 +117,20 @@ export default function ChatPanel({
     try {
       const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
-        if (aiResponse.mapIntent || aiResponse.mapUpdate) {
-          const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate
-          previousMapIntentRef.current = effectiveIntent
-          executeMapIntent(effectiveIntent, aiResponse, {
-            onSelectHarbor,
-            onMapFocus,
-            onSetInlandLocation,
-            onSelectUserLocation,
-            onDisengageInland,
-            onUpdateDynamicAdvisories,
-            onUpdateDynamicZones
-          })
-        }
+        const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate || { action: 'PRESERVE' }
+        previousMapIntentRef.current = effectiveIntent
+        executeMapIntent(effectiveIntent, aiResponse, {
+          onSelectHarbor,
+          onMapFocus,
+          onSetInlandLocation,
+          onSelectUserLocation,
+          onDisengageInland,
+          onUpdateDynamicAdvisories,
+          onUpdateDynamicZones,
+          onUpdateDashboardIntent,
+          onUpdateCardUpdates,
+          onUpdateQueryTarget
+        })
 
         const reply = {
           id: getUUID(),

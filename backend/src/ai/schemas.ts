@@ -25,6 +25,28 @@ export const mapIntentSchema = z.object({
   }).optional()
 });
 
+export const dashboardIntentSchema = z.object({
+  context: z.enum([
+    'HARBOR_TELEMETRY',
+    'PFZ_OVERVIEW',
+    'RESTRICTED_ZONES',
+    'WEATHER_FORECAST',
+    'WAVE_ANALYSIS',
+    'TIDE_FORECAST',
+    'CYCLONE_TRACK',
+    'NAVIGATION_ROUTE',
+    'DEPARTURE_ASSESSMENT',
+    'INLAND_STATUS'
+  ]),
+  scope: z.enum(['CURRENT_HARBOR', 'NEAR_LOCATION', 'STATE', 'REGION', 'NATIONAL']).optional(),
+  scopeName: z.string().optional(),
+  queryTarget: z.string().optional(),
+  title: z.string().optional(),
+  subtitle: z.string().optional(),
+  primaryCard: z.enum(['pfz', 'zone', 'weather', 'wind', 'wave', 'tide', 'cyclone', 'route', 'assessment', 'inland']).optional(),
+  visibleCards: z.array(z.string()).optional()
+});
+
 export const coordinatorSchema = z.object({
   intent: z.string(),
   location: z.object({
@@ -38,8 +60,10 @@ export const coordinatorSchema = z.object({
   operation: z.string().optional(),
   requestedAgents: z.array(z.enum(['weather', 'wind', 'tide', 'wave', 'cyclone', 'marine-alert', 'pfz', 'zone', 'species', 'catch'])).min(1),
   reason: z.string().optional(),
-  mapIntent: mapIntentSchema.optional()
+  mapIntent: mapIntentSchema.optional(),
+  dashboardIntent: dashboardIntentSchema.optional()
 });
 
 export type CoordinatorRequest = z.infer<typeof coordinatorSchema>;
 export type MapIntentInput = z.infer<typeof mapIntentSchema>;
+export type DashboardIntent = z.infer<typeof dashboardIntentSchema>;

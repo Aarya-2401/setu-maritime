@@ -16,7 +16,8 @@ const OrcaState = Annotation.Root({
   cardUpdates: Annotation<any[]>({ reducer: (a, b) => a.concat(b), default: () => [] }),
   mapUpdates: Annotation<any[]>({ reducer: (a, b) => a.concat(b), default: () => [] }),
   mapIntent: Annotation<MapIntent>({ reducer: (x, y) => y ?? x, default: () => ({ ...PRESERVE_INTENT }) }),
-  mapData: Annotation<Record<string, unknown>>({ reducer: (x, y) => y ?? x, default: () => ({}) })
+  mapData: Annotation<Record<string, unknown>>({ reducer: (x, y) => y ?? x, default: () => ({}) }),
+  dashboardIntent: Annotation<any>({ reducer: (x, y) => y ?? x, default: () => undefined })
 });
 
 type State = typeof OrcaState.State;
@@ -79,6 +80,13 @@ export async function runOrca(query: string, context?: ConversationContext) {
           cardUpdates,
           mapUpdates,
           mapIntent: inlandIntent,
+          dashboardIntent: {
+            context: 'INLAND_STATUS',
+            primaryCard: 'inland',
+            queryTarget: place,
+            title: `${place} (Inland)`,
+            subtitle: 'Terrestrial position - marine advisories inactive'
+          },
           mapData: {},
           answer: `${place} is an inland location with no open coastline or commercial maritime fishing harbor. Marine layers including EEZ boundaries, PFZ advisories, and marine sanctuaries do not apply at this terrestrial position.`
         };
@@ -170,6 +178,32 @@ export async function runOrca(query: string, context?: ConversationContext) {
         }
       }
 
+      const resolvedTarget = locRes.stateName || (h ? h.landing_center_name : (p.location?.name || normalizedIntent.scopeName));
+      let dashboardIntent = p.dashboardIntent;
+      if (!dashboardIntent) {
+        dashboardIntent = {
+          context: normalizedIntent.layer === 'RESTRICTED_ZONES' ? 'RESTRICTED_ZONES' :
+                   (normalizedIntent.layer === 'PFZ' ? 'PFZ_OVERVIEW' :
+                   (normalizedIntent.layer === 'CYCLONES' ? 'CYCLONE_TRACK' :
+                   (normalizedIntent.layer === 'ROUTES' ? 'NAVIGATION_ROUTE' : 'HARBOR_TELEMETRY'))),
+          primaryCard: normalizedIntent.layer === 'RESTRICTED_ZONES' ? 'zone' :
+                       (normalizedIntent.layer === 'PFZ' ? 'pfz' :
+                       (normalizedIntent.layer === 'CYCLONES' ? 'cyclone' :
+                       (normalizedIntent.layer === 'ROUTES' ? 'route' : 'weather'))),
+          scope: normalizedIntent.scope,
+          scopeName: normalizedIntent.scopeName || resolvedTarget,
+          queryTarget: resolvedTarget,
+          title: normalizedIntent.scopeName || resolvedTarget || 'Maritime Telemetry'
+        };
+      } else {
+        dashboardIntent = {
+          ...dashboardIntent,
+          queryTarget: dashboardIntent.queryTarget || resolvedTarget,
+          scope: dashboardIntent.scope || normalizedIntent.scope,
+          scopeName: dashboardIntent.scopeName || normalizedIntent.scopeName || resolvedTarget
+        };
+      }
+
       return {
         locationResolution: locRes,
         resolvedHarbor: h ? {
@@ -184,6 +218,7 @@ export async function runOrca(query: string, context?: ConversationContext) {
         cardUpdates: results.flatMap((r: any) => r.cardUpdates),
         mapUpdates,
         mapIntent: normalizedIntent,
+        dashboardIntent,
         mapData
       };
     })
