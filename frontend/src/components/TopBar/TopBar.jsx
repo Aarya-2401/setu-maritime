@@ -24,7 +24,10 @@ export default function TopBar({
   userLocationTag,
   hasLiveMarineData = true,
   globalTelemetry,
-  tides
+  tides,
+  dashboardContext = 'HARBOR_TELEMETRY',
+  queryTarget = null,
+  mapFocusTarget = null
 }) {
   const [currentTime, setCurrentTime] = useState(() => new Date())
 
@@ -38,6 +41,9 @@ export default function TopBar({
 
   const fmt = (val, unit, digits = 1) =>
     loading || val === null || val === undefined ? '--' : `${Number(val).toFixed(digits)}${unit}`
+
+  const isNationalContext = mapFocusTarget?.scope === 'NATIONAL' || queryTarget?.toLowerCase() === 'india'
+  const headerBadgeLabel = isNationalContext ? 'MAP' : (isUserLocationActive ? 'YOU' : 'BASE')
 
   // Group harbors into coastal states for organized optgroup navigation
   const groupedHarbors = useMemo(() => {
@@ -72,19 +78,23 @@ export default function TopBar({
         <div
           className="topbar__search"
           title={
-            isUserLocationActive && userLocation
+            isNationalContext
+              ? 'National Maritime Overview (India)'
+              : isUserLocationActive && userLocation
               ? `${userLocation.label} · User Detected Position (${userLocationTag})`
               : harbor
               ? `${harbor.landing_center_name || 'Harbor'} (${harbor.state || ''}) · Operational Base · UN/LOCODE: ${getUNLocode(harbor)} · ${getHarborAuthority(harbor)}`
               : 'Location selection'
           }
         >
-          <span className="topbar__base-tag">BASE</span>
+          <span className="topbar__base-tag">{headerBadgeLabel}</span>
           <span className="topbar__pin">
-            <IconLocation size={12} color={isUserLocationActive ? '#10b981' : '#35c9e8'} />
+            <IconLocation size={12} color={isNationalContext ? '#a855f7' : (isUserLocationActive ? '#10b981' : '#35c9e8')} />
           </span>
           <span className="topbar__station-tag">
-            {isUserLocationActive
+            {isNationalContext
+              ? 'IND · ALL'
+              : isUserLocationActive
               ? userLocationTag
               : harbor
               ? getFormattedHarborTag(harbor)
@@ -92,9 +102,15 @@ export default function TopBar({
           </span>
           <span
             className="topbar__locode-badge"
-            style={isUserLocationActive ? { borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' } : {}}
+            style={
+              isNationalContext
+                ? { borderColor: 'rgba(168, 85, 247, 0.4)', color: '#a855f7' }
+                : isUserLocationActive
+                ? { borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' }
+                : {}
+            }
           >
-            {isUserLocationActive ? 'YOU' : harbor ? getUNLocode(harbor) : 'UN/LOCODE'}
+            {isNationalContext ? 'INDIA' : isUserLocationActive ? 'YOU' : harbor ? getUNLocode(harbor) : 'UN/LOCODE'}
           </span>
           <span className="topbar__chevron">
             <IconChevronDown size={8} color="#35c9e8" />
@@ -103,16 +119,21 @@ export default function TopBar({
           {/* Native dropdown overlay with user location and coastal states */}
           <select
             className="topbar__harbor-select"
-            value={isUserLocationActive ? 'user_location' : (harbor?.harbor_id || '')}
+            value={isNationalContext ? 'national' : (isUserLocationActive ? 'user_location' : (harbor?.harbor_id || ''))}
             onChange={(e) => {
               if (e.target.value === 'user_location') {
                 if (onSelectUserLocation) onSelectUserLocation()
-              } else {
+              } else if (e.target.value !== 'national') {
                 onSelectHarbor(Number(e.target.value))
               }
             }}
             aria-label="Select operational base harbor station or user location"
           >
+            {isNationalContext && (
+              <optgroup label="ACTIVE MAP CONTEXT">
+                <option value="national">MAP CONTEXT: INDIA (National Overview)</option>
+              </optgroup>
+            )}
             {userLocation?.city && (
               <optgroup label="USER DETECTED LOCATION">
                 <option value="user_location">

@@ -24,9 +24,8 @@
 }
 
 .mobile-layout--home .mobile-map-section {
-  flex: 1 1 46%;
-  height: 46%;
-  min-height: 200px;
+  flex: 1 1 auto;
+  min-height: 210px;
   max-height: 48%;
   margin-bottom: 6px;
   display: flex;
@@ -39,9 +38,51 @@
   height: 100%;
 }
 
+/* Horizontal Contextual Cards Strip on Mobile Home */
+.mobile-cards-section {
+  width: 100%;
+  flex-shrink: 0;
+  margin-bottom: 6px;
+  box-sizing: border-box;
+}
+
+.mobile-cards-section .topic-grid {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  overflow-x: auto !important;
+  gap: 8px !important;
+  padding: 2px 2px 4px 2px !important;
+  margin: 0 !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.mobile-cards-section .topic-grid::-webkit-scrollbar {
+  display: none !important;
+}
+
+.mobile-cards-section .topic-card {
+  min-width: 220px !important;
+  max-width: 250px !important;
+  height: 110px !important;
+  min-height: 110px !important;
+  padding: 7px 10px 6px !important;
+  flex-shrink: 0 !important;
+  border-radius: 10px !important;
+}
+
+.mobile-cards-section .topic-card__header {
+  font-size: 10.5px !important;
+}
+
+.mobile-cards-section .topic-card__link {
+  font-size: 10px !important;
+}
+
 .mobile-layout--home .mobile-chat-section {
-  flex: 1 1 40%;
-  min-height: 160px;
+  flex: 0 0 auto;
+  min-height: 120px;
+  max-height: 30%;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -568,19 +609,32 @@
 }
 
 .mobile-layout--map .mobile-telemetry-grid,
+.mobile-layout--map .mobile-cards-section,
 .mobile-layout--map .mobile-chat-section,
 .mobile-layout--map .mobile-alerts-view {
   display: none !important;
 }
 
 .mobile-layout--alerts .mobile-telemetry-grid,
-.mobile-layout--alerts .mobile-map-section,
+.mobile-layout--alerts .mobile-cards-section,
 .mobile-layout--alerts .mobile-chat-section {
   display: none !important;
 }
 
+.mobile-layout--alerts .mobile-map-section,
+.mobile-layout--chat .mobile-map-section {
+  position: absolute !important;
+  top: -9999px !important;
+  left: -9999px !important;
+  width: 100% !important;
+  height: 280px !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  visibility: hidden !important;
+}
+
 .mobile-layout--chat .mobile-telemetry-grid,
-.mobile-layout--chat .mobile-map-section,
+.mobile-layout--chat .mobile-cards-section,
 .mobile-layout--chat .mobile-alerts-view {
   display: none !important;
 }

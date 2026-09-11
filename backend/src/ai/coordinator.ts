@@ -86,9 +86,10 @@ export function fallbackPlan(query: string, context?: ConversationContext): Coor
   if (!locName) {
     const match = q.match(/\b(?:in|near|around|at|for|from|off)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
     if (match && match[1]) {
-      const candidate = match[1].trim();
+      let candidate = match[1].trim();
+      candidate = candidate.replace(/\s+(?:on|in|at|the|for|map|chart|today|tomorrow)$/i, '').trim();
       const skipWords = new Set(['fishing', 'sailing', 'departure', 'port', 'sea', 'ocean', 'today', 'tomorrow', 'now', 'morning', 'the', 'a', 'an', 'india', 'map']);
-      if (!skipWords.has(candidate)) {
+      if (!skipWords.has(candidate.toLowerCase())) {
         locName = candidate.charAt(0).toUpperCase() + candidate.slice(1);
       }
     }

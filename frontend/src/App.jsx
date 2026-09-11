@@ -8,6 +8,7 @@ import { fetchLiveWeather, getCityStateAbbr } from './data/liveWeather'
 import { executeMapIntent } from './utils/mapIntentExecutor'
 import MobileLayout from './components/Mobile/MobileLayout'
 import { useIsMobile } from './components/Mobile/useIsMobile'
+import ErrorBoundary from './components/ErrorBoundary'
 
 const AssessmentModal = lazy(() => import('./components/Modal/AssessmentModal'))
 import {
@@ -325,9 +326,19 @@ export default function App() {
       setCardUpdates(aiResponse.cardUpdates)
     }
 
-    // 3. Atomically execute MapIntent without touching selectedHarbor unless explicitly commanded
+    // 3. Atomically synchronize harbor and inland state
+    const isTargetInland = Boolean(aiResponse.isInland || aiResponse.locationStatus === 'INLAND' || effectiveIntent.action === 'FOCUS_LOCATION')
+    if (!isTargetInland) {
+      setIsUserLocationActive(false)
+    }
+    const resolvedHarborId = aiResponse.harborId || aiResponse.resolvedHarbor?.harbor_id || effectiveIntent.harborId
+    if (resolvedHarborId && effectiveIntent.scope !== 'NATIONAL') {
+      setSelectedHarborId(Number(resolvedHarborId))
+    }
+
+    // 4. Atomically execute MapIntent
     executeMapIntent(effectiveIntent, aiResponse, {
-      onSelectHarbor: (id) => setSelectedHarborId(id),
+      onSelectHarbor: (id) => setSelectedHarborId(Number(id)),
       onMapFocus: (focus) => setMapFocusTarget(focus),
       onSetInlandLocation: handleSetInlandLocation,
       onSelectUserLocation: handleSelectUserLocation,
@@ -520,97 +531,103 @@ export default function App() {
   // Mobile Viewport Render (< 768px) - Clean, Single Header, No Scroll
   if (isMobile) {
     return (
-      <div className="app-shell app-shell--mobile">
-        <MobileLayout
-          harbor={selectedHarbor}
-          harbors={harbors}
-          onSelectHarbor={handleSelectHarbor}
-          onSelectUserLocation={handleSelectUserLocation}
-          onSetInlandLocation={handleSetInlandLocation}
-          onDisengageInland={() => setIsUserLocationActive(false)}
-          isUserLocationActive={isUserLocationActive}
-          userLocationTag={userLocationTag}
-          hasLiveMarineData={hasLiveMarineData}
-          liveWeather={liveWeatherData}
-          safetyData={effectiveSafetyData}
-          safetyHistory={safetyHistory}
-          assessment={activeAssessment}
-          operationalStatus={operationalStatus}
-          dashboardContext={dashboardContext}
-          queryTarget={queryTarget}
-          cardUpdates={cardUpdates}
-          onOpenAssessment={() => setAssessmentModalOpen(true)}
-          loading={loading}
-          hasApiError={hasApiError}
-          tides={tides}
-          tideMeta={tideMeta}
-          advisories={effectiveAdvisories}
-          routes={routes}
-          restrictedZones={effectiveZones}
-          maritimeBoundaries={maritimeBoundaries}
-          selectedRouteId={selectedRouteId || activeAssessment?.selectedRoute?.advisory_id}
-          onSelectRoute={setSelectedRouteId}
-          mapFocusTarget={mapFocusTarget}
-          userLocation={userLocation}
-          messages={messages}
-          onAddMessage={handleAddMessage}
-          onTriggerKeralaDemo={handleTriggerKeralaDemo}
-          onMapFocus={setMapFocusTarget}
-          onUpdateDynamicAdvisories={setDynamicAdvisories}
-          onUpdateDynamicZones={setDynamicZones}
-          onUpdateDashboardIntent={handleUpdateDashboardIntent}
-          onUpdateCardUpdates={setCardUpdates}
-          onUpdateQueryTarget={setQueryTarget}
-          globalTelemetry={globalTelemetry}
-          onApplyAIResponse={applyAIResponse}
-        />
+      <ErrorBoundary>
+        <div className="app-shell app-shell--mobile">
+          <MobileLayout
+            harbor={selectedHarbor}
+            harbors={harbors}
+            onSelectHarbor={handleSelectHarbor}
+            onSelectUserLocation={handleSelectUserLocation}
+            onSetInlandLocation={handleSetInlandLocation}
+            onDisengageInland={() => setIsUserLocationActive(false)}
+            isUserLocationActive={isUserLocationActive}
+            userLocationTag={userLocationTag}
+            hasLiveMarineData={hasLiveMarineData}
+            liveWeather={liveWeatherData}
+            safetyData={effectiveSafetyData}
+            safetyHistory={safetyHistory}
+            assessment={activeAssessment}
+            operationalStatus={operationalStatus}
+            dashboardContext={dashboardContext}
+            queryTarget={queryTarget}
+            cardUpdates={cardUpdates}
+            onOpenAssessment={() => setAssessmentModalOpen(true)}
+            loading={loading}
+            hasApiError={hasApiError}
+            tides={tides}
+            tideMeta={tideMeta}
+            advisories={effectiveAdvisories}
+            routes={routes}
+            restrictedZones={effectiveZones}
+            maritimeBoundaries={maritimeBoundaries}
+            selectedRouteId={selectedRouteId || activeAssessment?.selectedRoute?.advisory_id}
+            onSelectRoute={setSelectedRouteId}
+            mapFocusTarget={mapFocusTarget}
+            userLocation={userLocation}
+            messages={messages}
+            onAddMessage={handleAddMessage}
+            onTriggerKeralaDemo={handleTriggerKeralaDemo}
+            onMapFocus={setMapFocusTarget}
+            onUpdateDynamicAdvisories={setDynamicAdvisories}
+            onUpdateDynamicZones={setDynamicZones}
+            onUpdateDashboardIntent={handleUpdateDashboardIntent}
+            onUpdateCardUpdates={setCardUpdates}
+            onUpdateQueryTarget={setQueryTarget}
+            globalTelemetry={globalTelemetry}
+            onApplyAIResponse={applyAIResponse}
+          />
 
-        {assessmentModalOpen && (
-          <Suspense fallback={null}>
-            <AssessmentModal
-              isOpen={assessmentModalOpen}
-              onClose={() => setAssessmentModalOpen(false)}
-              harbor={selectedHarbor}
-              assessment={activeAssessment}
-              onOpenRoutes={() => {
-                const btn = document.querySelector('.map-section__route-btn')
-                if (btn) btn.click()
-              }}
-            />
-          </Suspense>
-        )}
-      </div>
+          {assessmentModalOpen && (
+            <Suspense fallback={null}>
+              <AssessmentModal
+                isOpen={assessmentModalOpen}
+                onClose={() => setAssessmentModalOpen(false)}
+                harbor={selectedHarbor}
+                assessment={activeAssessment}
+                onOpenRoutes={() => {
+                  const btn = document.querySelector('.map-section__route-btn')
+                  if (btn) btn.click()
+                }}
+              />
+            </Suspense>
+          )}
+        </div>
+      </ErrorBoundary>
     )
   }
 
   // Desktop Viewport Render (>= 768px) - 100% Preserved Desktop Layout
   return (
-    <div className="app">
-      {/* Accessibility: Skip to main content landmark */}
-      <a href="#main-content" className="skip-link">
-        Skip to main content
-      </a>
+    <ErrorBoundary>
+      <div className="app">
+        {/* Accessibility: Skip to main content landmark */}
+        <a href="#main-content" className="skip-link">
+          Skip to main content
+        </a>
 
-      {/* Main Workspace: Semantic Landmark */}
-      <main className="app__main" id="main-content">
-        <TopBar
-          harbor={selectedHarbor}
-          harbors={harbors}
-          onSelectHarbor={handleSelectHarbor}
-          onSelectUserLocation={handleSelectUserLocation}
-          isUserLocationActive={isUserLocationActive}
-          userLocationTag={userLocationTag}
-          hasLiveMarineData={hasLiveMarineData}
-          userLocation={userLocation}
-          safetyData={effectiveSafetyData}
-          assessment={activeAssessment}
-          operationalStatus={operationalStatus}
-          onOpenAssessment={() => setAssessmentModalOpen(true)}
-          loading={loading}
-          hasApiError={hasApiError}
-          globalTelemetry={globalTelemetry}
-          tides={tides}
-        />
+        {/* Main Workspace: Semantic Landmark */}
+        <main className="app__main" id="main-content">
+          <TopBar
+            harbor={selectedHarbor}
+            harbors={harbors}
+            onSelectHarbor={handleSelectHarbor}
+            onSelectUserLocation={handleSelectUserLocation}
+            isUserLocationActive={isUserLocationActive}
+            userLocationTag={userLocationTag}
+            hasLiveMarineData={hasLiveMarineData}
+            userLocation={userLocation}
+            safetyData={effectiveSafetyData}
+            assessment={activeAssessment}
+            operationalStatus={operationalStatus}
+            onOpenAssessment={() => setAssessmentModalOpen(true)}
+            loading={loading}
+            hasApiError={hasApiError}
+            globalTelemetry={globalTelemetry}
+            tides={tides}
+            dashboardContext={dashboardContext}
+            queryTarget={queryTarget}
+            mapFocusTarget={mapFocusTarget}
+          />
 
         <div className="app__content">
           <MapSection
@@ -701,5 +718,6 @@ export default function App() {
         </Suspense>
       )}
     </div>
+    </ErrorBoundary>
   )
 }

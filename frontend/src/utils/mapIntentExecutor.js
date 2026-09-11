@@ -79,23 +79,28 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
 
   console.log('[ORCA Executor] Executing MapIntent: ' + action + ' - Layer: ' + (layer || 'NONE') + ' - Scope: ' + (scope || 'NONE'));
 
+  // Disengage inland terrestrial view for maritime actions
+  const isTargetInland = Boolean(payload?.isInland || payload?.locationStatus === 'INLAND' || action === 'FOCUS_LOCATION');
+  if (!isTargetInland && onDisengageInland) {
+    onDisengageInland();
+  }
+
+  // Synchronize active maritime harbor if a valid harbor was resolved and scope is not national
+  const resolvedHarborId = intent.harborId || payload?.harborId || payload?.resolvedHarbor?.harbor_id;
+  if (resolvedHarborId && scope !== 'NATIONAL' && onSelectHarbor) {
+    onSelectHarbor(Number(resolvedHarborId));
+  }
+
   // 1. PRESERVE - Leave map view and layers completely untouched
   if (action === 'PRESERVE') {
     return;
-  }
-
-  // Maritime operations automatically disengage inland locality view
-  if (action === 'FOCUS_HARBOR' || action === 'FIT_LAYER' || action === 'FOCUS_LAYER') {
-    if (onDisengageInland) {
-      onDisengageInland();
-    }
   }
 
   // 2. FOCUS_HARBOR - Recenter to specified harbor
   if (action === 'FOCUS_HARBOR' || (action === 'FIT_LAYER' && layer === 'HARBORS')) {
     const harborId = intent.harborId || payload?.harborId;
     if (harborId && onSelectHarbor) {
-      onSelectHarbor(harborId);
+      onSelectHarbor(Number(harborId));
     }
     const lat = intent.location?.latitude || payload?.location?.latitude;
     const lon = intent.location?.longitude || payload?.location?.longitude;

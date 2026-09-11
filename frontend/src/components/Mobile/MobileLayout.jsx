@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import MapSection from '../MapSection/MapSection'
+import TopicCardsGrid from '../TopicCards/TopicCardsGrid'
 import {
   IconLocation,
   IconChevronDown,
@@ -175,14 +176,18 @@ export default function MobileLayout({
   }, [harbors])
 
   // Determine current display location text
+  const isNationalContext = mapFocusTarget?.scope === 'NATIONAL' || queryTarget?.toLowerCase() === 'india'
   const locationText = useMemo(() => {
+    if (isNationalContext) return 'MAP CONTEXT: INDIA'
     if (isUserLocationActive && userLocation?.label) return userLocation.label
     if (harbor?.landing_center_name && harbor?.state) {
       return `${harbor.landing_center_name}, ${harbor.state}`
     }
     if (harbor?.landing_center_name) return harbor.landing_center_name
-    return 'Jaipur, Rajasthan'
-  }, [isUserLocationActive, userLocation, harbor])
+    return 'Coastal Station'
+  }, [isNationalContext, isUserLocationActive, userLocation, harbor])
+
+  const headerBadgeLabel = isNationalContext ? 'MAP' : (isUserLocationActive ? 'YOU' : 'BASE')
 
   // Telemetry metric formatting
   const locationName = isUserLocationActive && userLocation?.label
@@ -204,16 +209,14 @@ export default function MobileLayout({
   const windRotation = safetyData?.wind_direction_deg != null ? Number(safetyData.wind_direction_deg) : null
   const beaufort = windSpeedKmph != null ? getBeaufortScale(windSpeedKmph) : null
 
-  const waveHeight =
-    safetyData?.significant_wave_height_m != null
-      ? Number(safetyData.significant_wave_height_m).toFixed(1)
-      : null
-  const waveVal = waveHeight != null ? `${waveHeight} m` : '-- m'
-  const displayWaveVal = waveHeight != null ? `${waveHeight} m` : (currentTideHeight != null ? `${currentTideHeight.toFixed(1)} m` : '1.3 m')
-  const swell = safetyData?.swell_wave_height_m != null ? Number(safetyData.swell_wave_height_m) : null
-  const seaState = safetyData?.wmo_sea_state_desc || '--'
+  // Tide telemetry (declared prior to wave telemetry to avoid Temporal Dead Zone ReferenceErrors)
+  const currentTideHeight = tides && tides.length > 0 ? Number(tides[0].tide_height_meters) : null
+  const tideVal = currentTideHeight != null ? `${currentTideHeight.toFixed(1)} m` : '-- m'
+  const upcomingEvent = safetyData?.upcoming_tide_event || '--'
+  const isReference = Boolean(tideMeta?.isReferenceStation)
+  const referencePort = tideMeta?.referencePortName || (tides && tides.length > 0 ? tides[0].port_name : '')
+  const distanceKm = tideMeta?.distanceKm
 
-  // Tide telemetry
   const highTide = tides && tides.length > 0
     ? tides.filter((t) => t.tide_phase === 'HIGH' || t.tide_phase === 'H')[0] ||
       tides.reduce((a, b) => (Number(b.tide_height_meters) > Number(a.tide_height_meters) ? b : a))
@@ -224,12 +227,14 @@ export default function MobileLayout({
       tides.reduce((a, b) => (Number(b.tide_height_meters) < Number(a.tide_height_meters) ? b : a))
     : null
 
-  const currentTideHeight = tides && tides.length > 0 ? Number(tides[0].tide_height_meters) : null
-  const tideVal = currentTideHeight != null ? `${currentTideHeight.toFixed(1)} m` : '-- m'
-  const upcomingEvent = safetyData?.upcoming_tide_event || '--'
-  const isReference = Boolean(tideMeta?.isReferenceStation)
-  const referencePort = tideMeta?.referencePortName || (tides && tides.length > 0 ? tides[0].port_name : '')
-  const distanceKm = tideMeta?.distanceKm
+  const waveHeight =
+    safetyData?.significant_wave_height_m != null
+      ? Number(safetyData.significant_wave_height_m).toFixed(1)
+      : null
+  const waveVal = waveHeight != null ? `${waveHeight} m` : '-- m'
+  const displayWaveVal = waveHeight != null ? `${waveHeight} m` : (currentTideHeight != null ? `${currentTideHeight.toFixed(1)} m` : '1.3 m')
+  const swell = safetyData?.swell_wave_height_m != null ? Number(safetyData.swell_wave_height_m) : null
+  const seaState = safetyData?.wmo_sea_state_desc || '--'
 
   const timeVal = formatCurrentTime(currentTime)
   const dateVal = formatCurrentDate(currentTime)
@@ -502,8 +507,8 @@ export default function MobileLayout({
         </div>
 
         <div className="mobile-header__location-pill" title="Operational Base Harbor">
-          <IconLocation size={12} color="#38bdf8" />
-          <span className="mobile-header__base-badge">BASE</span>
+          <IconLocation size={12} color={isNationalContext ? '#a855f7' : (isUserLocationActive ? '#10b981' : '#38bdf8')} />
+          <span className="mobile-header__base-badge">{headerBadgeLabel}</span>
           <span className="mobile-header__location-text">
             {locationText}
           </span>
@@ -512,16 +517,21 @@ export default function MobileLayout({
           {/* Native select overlay for modal-free harbor and user location selection */}
           <select
             className="mobile-header__select-overlay"
-            value={isUserLocationActive ? 'user_location' : (harbor?.harbor_id || '')}
+            value={isNationalContext ? 'national' : (isUserLocationActive ? 'user_location' : (harbor?.harbor_id || ''))}
             onChange={(e) => {
               if (e.target.value === 'user_location') {
                 if (onSelectUserLocation) onSelectUserLocation()
-              } else {
+              } else if (e.target.value !== 'national') {
                 onSelectHarbor(Number(e.target.value))
               }
             }}
             aria-label="Select harbor or user location"
           >
+            {isNationalContext && (
+              <optgroup label="ACTIVE MAP CONTEXT">
+                <option value="national">MAP CONTEXT: INDIA (National Overview)</option>
+              </optgroup>
+            )}
             {userLocation?.city && (
               <optgroup label="USER DETECTED LOCATION">
                 <option value="user_location">
@@ -689,9 +699,33 @@ export default function MobileLayout({
             hasLiveMarineData={hasLiveMarineData}
             liveWeather={liveWeather}
             isMobile={true}
+            activeNav={activeNav}
           />
         </div>
       </section>
+
+      {/* 3. Contextual Operational Cards (TopicCardsGrid) */}
+      {activeNav === 'home' && (
+        <section className="mobile-cards-section" aria-label="Contextual Decision Support Cards">
+          <TopicCardsGrid
+            harbor={harbor}
+            safetyData={safetyData}
+            safetyHistory={safetyHistory}
+            tides={tides}
+            tideMeta={tideMeta}
+            loading={loading}
+            hasLiveMarineData={hasLiveMarineData}
+            userLocation={userLocation}
+            isUserLocationActive={isUserLocationActive}
+            dashboardContext={dashboardContext}
+            queryTarget={queryTarget}
+            cardUpdates={cardUpdates}
+            advisories={advisories}
+            restrictedZones={restrictedZones}
+            routes={routes}
+          />
+        </section>
+      )}
 
       {/* Dedicated Mobile Alerts & Departure Assessment View */}
       {activeNav === 'alerts' && (
@@ -958,7 +992,7 @@ export default function MobileLayout({
                           </li>
                           <li>
                             <CheckIcon />
-                            <span>Distance {activePFZ.distance_nm} NM · Transit ETA: {calculateETA(activePFZ.distance_nm)}</span>
+                            <span>Distance {activePFZ?.distance_nm ? `${activePFZ.distance_nm} NM` : '--'} · Transit ETA: {calculateETA(activePFZ?.distance_nm)}</span>
                           </li>
                         </ul>
                       ) : (

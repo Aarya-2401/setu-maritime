@@ -45,7 +45,8 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
   const locMatch = q.match(/\b(?:near|around|at|for|from|off|in)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
   let extractedLocName: string | undefined;
   if (locMatch && locMatch[1]) {
-    const candidate = locMatch[1].trim();
+    let candidate = locMatch[1].trim();
+    candidate = candidate.replace(/\s+(?:on|in|at|the|for|map|chart|today|tomorrow)$/i, '').trim();
     const skipWords = new Set(['fishing', 'sailing', 'departure', 'port', 'harbor', 'harbour', 'sea', 'ocean', 'today', 'tomorrow', 'now', 'morning', 'the', 'a', 'an', 'india', 'map', 'active', 'those', 'them', 'there']);
     if (!skipWords.has(candidate.toLowerCase())) {
       extractedLocName = candidate.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');

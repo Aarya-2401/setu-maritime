@@ -59,22 +59,29 @@ function createUserMarkerIcon() {
 }
 
 // Dynamic map camera controller with smooth cinematic flight animation
-function MapCameraController({ centerLat, centerLon, focusTarget }) {
+function MapCameraController({ centerLat, centerLon, focusTarget, activeNav }) {
   const map = useMap()
   const prevTargetTime = useRef(null)
   const prevCenterKey = useRef(null)
 
   useEffect(() => {
+    const container = map.getContainer()
+    const isVisible = container && container.clientWidth > 20 && container.clientHeight > 20
+
     // Priority 1: Fit bounds if bounding box is commanded (e.g. state zones, national PFZ, EEZ, IMBL, Cyclones)
     if (focusTarget && focusTarget.bounds && Array.isArray(focusTarget.bounds) && focusTarget.bounds.length >= 2) {
       if (focusTarget.timestamp !== prevTargetTime.current) {
+        if (!isVisible) {
+          // Container is currently hidden or not sized; wait until it becomes visible
+          return
+        }
         prevTargetTime.current = focusTarget.timestamp
         try {
           map.fitBounds(focusTarget.bounds, {
             padding: [45, 45],
             maxZoom: focusTarget.maxZoom || 11,
             animate: true,
-            duration: 2.0
+            duration: 1.8
           })
         } catch (e) {
           console.warn('[MapCameraController] fitBounds failed:', e)
@@ -86,9 +93,12 @@ function MapCameraController({ centerLat, centerLon, focusTarget }) {
     // Priority 2: Smooth cinematic flyTo if a specific target coordinate is commanded
     if (focusTarget && focusTarget.lat && focusTarget.lon) {
       if (focusTarget.timestamp !== prevTargetTime.current) {
+        if (!isVisible) {
+          return
+        }
         prevTargetTime.current = focusTarget.timestamp
         map.flyTo([Number(focusTarget.lat), Number(focusTarget.lon)], focusTarget.zoom || 11, {
-          duration: 2.2,
+          duration: 2.0,
           easeLinearity: 0.25
         })
         return
@@ -100,24 +110,26 @@ function MapCameraController({ centerLat, centerLon, focusTarget }) {
     if (centerLat && centerLon && prevCenterKey.current !== centerKey) {
       prevCenterKey.current = centerKey
       if (!focusTarget || focusTarget.timestamp !== prevTargetTime.current) {
-        map.setView([centerLat, centerLon], 8, { animate: true })
+        if (isVisible) {
+          map.setView([centerLat, centerLon], 8, { animate: true })
+        }
       }
     }
-  }, [centerLat, centerLon, focusTarget, map])
+  }, [centerLat, centerLon, focusTarget, activeNav, map])
 
   return null
 }
 
-// Ensure Leaflet map recalculates viewport dimensions smoothly
-function MapInvalidator() {
+// Ensure Leaflet map recalculates viewport dimensions smoothly across tab changes and resizes
+function MapInvalidator({ activeNav }) {
   const map = useMap()
   useEffect(() => {
     const timer = setTimeout(() => {
-      map.invalidateSize()
+      try { map.invalidateSize({ animate: false }) } catch {}
     }, 150)
 
     const handleResize = () => {
-      map.invalidateSize()
+      try { map.invalidateSize({ animate: false }) } catch {}
     }
     window.addEventListener('resize', handleResize)
 
@@ -125,7 +137,7 @@ function MapInvalidator() {
     let observer = null
     if (typeof ResizeObserver !== 'undefined' && container) {
       observer = new ResizeObserver(() => {
-        map.invalidateSize()
+        try { map.invalidateSize({ animate: false }) } catch {}
       })
       observer.observe(container)
     }
@@ -136,6 +148,17 @@ function MapInvalidator() {
       if (observer) observer.disconnect()
     }
   }, [map])
+
+  // Invalidate size immediately when active navigation tab switches to home or map
+  useEffect(() => {
+    if (activeNav === 'home' || activeNav === 'map') {
+      const t = setTimeout(() => {
+        try { map.invalidateSize({ animate: false }) } catch {}
+      }, 60)
+      return () => clearTimeout(t)
+    }
+  }, [activeNav, map])
+
   return null
 }
 
@@ -806,7 +829,8 @@ export default function MapSection({
   isMobile = false,
   isUserLocationActive = false,
   hasLiveMarineData = true,
-  liveWeather = null
+  liveWeather = null,
+  activeNav = 'home'
 }) {
   const [modalOpen, setModalOpen] = useState(false)
   const [isExpanded, setIsExpanded] = useState(false)
@@ -828,12 +852,16 @@ export default function MapSection({
   }, [isExpanded])
 
   const hasHarbor = Boolean(harbor && harbor.latitude && harbor.longitude)
-  const harborLat = hasHarbor ? Number(harbor.latitude) : 15.0
-  const harborLon = hasHarbor ? Number(harbor.longitude) : 76.0
+  const rawHarborLat = hasHarbor ? Number(harbor.latitude) : 20.90
+  const rawHarborLon = hasHarbor ? Number(harbor.longitude) : 70.36
+  const harborLat = isNaN(rawHarborLat) ? 20.90 : rawHarborLat
+  const harborLon = isNaN(rawHarborLon) ? 70.36 : rawHarborLon
   const harborCoords = [harborLat, harborLon]
 
-  const activeLat = (isUserLocationActive && userLocation?.lat) ? Number(userLocation.lat) : harborLat
-  const activeLon = (isUserLocationActive && userLocation?.lon) ? Number(userLocation.lon) : harborLon
+  const rawActiveLat = (isUserLocationActive && userLocation?.lat) ? Number(userLocation.lat) : harborLat
+  const rawActiveLon = (isUserLocationActive && userLocation?.lon) ? Number(userLocation.lon) : harborLon
+  const activeLat = isNaN(rawActiveLat) ? 20.90 : rawActiveLat
+  const activeLon = isNaN(rawActiveLon) ? 70.36 : rawActiveLon
   const coords = [activeLat, activeLon]
 
   const isInland = isUserLocationActive && !hasLiveMarineData
@@ -954,8 +982,8 @@ export default function MapSection({
               updateWhenIdle={true}
               updateWhenZooming={false}
             />
-            <MapCameraController centerLat={activeLat} centerLon={activeLon} focusTarget={mapFocusTarget} />
-            <MapInvalidator />
+            <MapCameraController centerLat={activeLat} centerLon={activeLon} focusTarget={mapFocusTarget} activeNav={activeNav} />
+            <MapInvalidator activeNav={activeNav} />
             <MapLayers {...mapLayerProps} />
           </MapContainer>
 
