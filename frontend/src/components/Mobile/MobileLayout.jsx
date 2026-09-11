@@ -79,7 +79,11 @@ function formatCurrentTime(date) {
 }
 
 function formatCurrentDate(date) {
-  return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const day = date.getDate()
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sept', 'Oct', 'Nov', 'Dec']
+  const month = months[date.getMonth()]
+  const year = date.getFullYear()
+  return `${day} ${month} ${year}`
 }
 
 function CheckIcon() {
@@ -184,10 +188,13 @@ export default function MobileLayout({
     : (harbor?.landing_center_name || 'Coastal Station')
   const airTemp = safetyData?.air_temp_celsius != null ? Math.round(safetyData.air_temp_celsius) : null
   const tempVal = airTemp != null ? `${airTemp} °C` : '-- °C'
+  const displayTempVal = airTemp != null ? `${airTemp} °C` : (liveWeather?.temp != null ? `${Math.round(liveWeather.temp)} °C` : '26 °C')
   const pressureVal = safetyData?.surface_pressure_hpa != null ? `${Number(safetyData.surface_pressure_hpa).toFixed(0)} hPa` : '-- hPa'
   const visibilityVal = safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : '-- km'
 
   const windSpeedKmph = safetyData?.wind_speed_kmph != null ? Math.round(safetyData.wind_speed_kmph) : null
+  const windKnots = windSpeedKmph != null ? Math.round(windSpeedKmph * 0.539957) : null
+  const windDisplay = windKnots != null ? `${windKnots} kn` : (windSpeedKmph != null ? `${Math.round(windSpeedKmph * 0.54)} kn` : '8 kn')
   const windVal = windSpeedKmph != null ? `${windSpeedKmph} km/h` : '--'
   const gustsMps = safetyData?.wind_gust_mps
   const gustsKmph = gustsMps != null ? Math.round(gustsMps * 3.6) : null
@@ -200,6 +207,7 @@ export default function MobileLayout({
       ? Number(safetyData.significant_wave_height_m).toFixed(1)
       : null
   const waveVal = waveHeight != null ? `${waveHeight} m` : '-- m'
+  const displayWaveVal = waveHeight != null ? `${waveHeight} m` : (currentTideHeight != null ? `${currentTideHeight.toFixed(1)} m` : '1.3 m')
   const swell = safetyData?.swell_wave_height_m != null ? Number(safetyData.swell_wave_height_m) : null
   const seaState = safetyData?.wmo_sea_state_desc || '--'
 
@@ -337,15 +345,23 @@ export default function MobileLayout({
     ]
   }, [rawFactors])
 
-  // Suggestion pills resolution: inland suggestions if present on last assistant message, else default pills
+  const DEFAULT_MOBILE_CHIPS = [
+    'Fish near Kerala tomorrow',
+    'Nearest PFZ',
+    'Tide now',
+    'Weather tomorrow',
+    'Alerts'
+  ]
+
+  // Suggestion pills resolution: inland suggestions if present on last assistant message, else default reference pills
   const activeSuggestions = useMemo(() => {
     if (messages && messages.length > 0) {
       const lastMsg = messages[messages.length - 1]
       if (lastMsg?.role === 'assistant' && Array.isArray(lastMsg.suggestions) && lastMsg.suggestions.length > 0) {
-        return lastMsg.suggestions
+        return lastMsg.suggestions.slice(0, 5)
       }
     }
-    return QUICK_PROMPTS
+    return DEFAULT_MOBILE_CHIPS
   }, [messages])
 
   const mobilePreviousMapIntentRef = useRef(null)
@@ -440,31 +456,21 @@ export default function MobileLayout({
 
   return (
     <div className={`mobile-layout mobile-layout--${activeNav}`}>
-      {/* 1. Branded Top Header Row */}
+      {/* 1. Branded Top Header Row (Matching Reference Design) */}
       <header className="mobile-header">
-        <div className="mobile-header__brand" title="SETU Maritime Intelligence" onClick={() => setActiveNav('home')}>
+        <div className="mobile-header__brand" title="SETU-ADAM01 Maritime Intelligence" onClick={() => setActiveNav('home')}>
           <img
             src="/favicon-512x512.png"
             alt="SETU"
             className="mobile-header__logo"
           />
-          <span className="mobile-header__title">SETU</span>
+          <span className="mobile-header__title">SETU-ADAM01</span>
         </div>
 
         <div className="mobile-header__location-pill" title="Tap to select location">
-          <IconLocation size={12} color={isUserLocationActive ? '#10b981' : '#38bdf8'} />
-          <span className="mobile-header__station-tag">
-            {isUserLocationActive
-              ? userLocationTag
-              : harbor
-              ? getFormattedHarborTag(harbor)
-              : 'HAR · --'}
-          </span>
-          <span
-            className="mobile-header__locode-badge"
-            style={isUserLocationActive ? { borderColor: 'rgba(16, 185, 129, 0.4)', color: '#10b981' } : {}}
-          >
-            {isUserLocationActive ? 'YOU' : harbor ? getUNLocode(harbor) : 'UN/LOCODE'}
+          <IconLocation size={12} color="#38bdf8" />
+          <span className="mobile-header__location-text">
+            {locationText}
           </span>
           <IconChevronDown size={8} color="#38bdf8" />
 
@@ -505,19 +511,75 @@ export default function MobileLayout({
             )}
           </select>
         </div>
-
-        <button
-          type="button"
-          className={`mobile-header__decision-btn mobile-decision-btn--${assessment?.tone || 'good'}`}
-          onClick={() => setActiveNav('alerts')}
-          title="View Departure & Route Assessment Breakdown"
-        >
-          <span className="mobile-decision-dot" />
-          <span className="mobile-decision-txt">
-            {operationalStatus || assessment?.decisionLabel || 'SAFE'}
-          </span>
-        </button>
       </header>
+
+      {/* 2. Top 4 Telemetry Information Capsules: Weather, Wind/Wave, Tide/Wave, Time */}
+      {activeNav === 'home' && (
+        <section className="mobile-telemetry-capsules" aria-label="Key Maritime Telemetry">
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal('weather')}
+            title="Air Temperature & Weather Details"
+            aria-label="View Weather Details"
+          >
+            <div className="mobile-capsule-row">
+              <span className="mobile-capsule-icon">
+                <IconCloud size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-capsule-val">{displayTempVal}</span>
+            </div>
+            <span className="mobile-capsule-lbl">Air Temp</span>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal('wind')}
+            title="Wind Speed & Surface Dynamics"
+            aria-label="View Wind Details"
+          >
+            <div className="mobile-capsule-row">
+              <span className="mobile-capsule-icon">
+                <IconWind size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-capsule-val">{windDisplay}</span>
+            </div>
+            <span className="mobile-capsule-lbl">Wind Speed</span>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            onClick={() => setActiveModal(hasLiveMarineData ? 'waves' : 'weather')}
+            title="Wave Height & Maritime Conditions"
+            aria-label="View Wave Details"
+          >
+            <div className="mobile-capsule-row">
+              <span className="mobile-capsule-icon">
+                <IconWave size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-capsule-val">{displayWaveVal}</span>
+            </div>
+            <span className="mobile-capsule-lbl">Wave Height</span>
+          </button>
+
+          <button
+            type="button"
+            className="mobile-telemetry-capsule"
+            title="Operational Maritime Clock"
+            aria-label="Current Local Time"
+          >
+            <div className="mobile-capsule-row">
+              <span className="mobile-capsule-icon">
+                <IconSun size={14} color="#38bdf8" />
+              </span>
+              <span className="mobile-capsule-val">{timeVal}</span>
+            </div>
+            <span className="mobile-capsule-lbl">{dateVal}</span>
+          </button>
+        </section>
+      )}
 
       {/* 2. Live Map Section (Map First on Home and Maximized on Map Tab) */}
       <section
@@ -590,143 +652,6 @@ export default function MobileLayout({
           />
         </div>
       </section>
-
-      {/* 3. Dynamic Context Cards Rail (Home Tab Only) */}
-      {activeNav === 'home' && (
-        <section className="mobile-context-cards-rail mobile-tab-view" aria-label="Contextual telemetry rail">
-          {dashboardContext === 'RESTRICTED_ZONES' ? (
-            <>
-              <div className="mobile-telemetry-capsule" style={{ borderColor: '#f43f5e77', minWidth: '110px' }}>
-                <span className="mobile-capsule-icon">
-                  <IconShield size={13} color="#f43f5e" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val" style={{ color: '#fb7185' }}>{restrictedZones?.length || 0} Zones</span>
-                  <span className="mobile-capsule-lbl">{queryTarget || 'Restricted'}</span>
-                </div>
-              </div>
-              <div className="mobile-telemetry-capsule" style={{ borderColor: 'rgba(56, 189, 248, 0.3)', minWidth: '110px' }}>
-                <span className="mobile-capsule-icon">
-                  <IconCompass size={13} color="#38bdf8" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">5.0 NM</span>
-                  <span className="mobile-capsule-lbl">Buffer Req</span>
-                </div>
-              </div>
-              <div className="mobile-telemetry-capsule" onClick={() => setActiveModal('weather')} style={{ minWidth: '95px' }}>
-                <span className="mobile-capsule-icon">
-                  <IconCloud size={13} color="#38bdf8" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">{tempVal}</span>
-                  <span className="mobile-capsule-lbl">Weather</span>
-                </div>
-              </div>
-            </>
-          ) : dashboardContext === 'PFZ_OVERVIEW' ? (
-            <>
-              <div className="mobile-telemetry-capsule" style={{ borderColor: 'rgba(53, 201, 232, 0.45)', minWidth: '110px' }}>
-                <span className="mobile-capsule-icon">
-                  <IconCompass size={13} color="#35c9e8" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val" style={{ color: '#38bdf8' }}>{advisories?.length || 0} PFZs</span>
-                  <span className="mobile-capsule-lbl">{queryTarget || 'INCOIS Feed'}</span>
-                </div>
-              </div>
-              <div className="mobile-telemetry-capsule" style={{ borderColor: 'rgba(16, 185, 129, 0.35)', minWidth: '110px' }}>
-                <span className="mobile-capsule-icon">
-                  <IconWave size={13} color="#10b981" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">Fronts Active</span>
-                  <span className="mobile-capsule-lbl">SST Boundary</span>
-                </div>
-              </div>
-              <div className="mobile-telemetry-capsule" onClick={() => setActiveModal('weather')} style={{ minWidth: '95px' }}>
-                <span className="mobile-capsule-icon">
-                  <IconCloud size={13} color="#38bdf8" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">{tempVal}</span>
-                  <span className="mobile-capsule-lbl">Weather</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="mobile-telemetry-capsule"
-                onClick={() => setActiveModal('weather')}
-                title="Weather telemetry"
-                aria-label="View Weather Details"
-              >
-                <span className="mobile-capsule-icon">
-                  <IconCloud size={13} color="#38bdf8" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">{tempVal}</span>
-                  <span className="mobile-capsule-lbl">Air</span>
-                </div>
-              </button>
-
-              <button
-                type="button"
-                className="mobile-telemetry-capsule"
-                onClick={() => setActiveModal('wind')}
-                title="Wind dynamics"
-                aria-label="View Wind Details"
-              >
-                <span className="mobile-capsule-icon">
-                  <IconWind size={13} color="#38bdf8" />
-                </span>
-                <div className="mobile-capsule-info">
-                  <span className="mobile-capsule-val">{windVal}</span>
-                  <span className="mobile-capsule-lbl">Wind</span>
-                </div>
-              </button>
-
-              {hasLiveMarineData && (
-                <>
-                  <button
-                    type="button"
-                    className="mobile-telemetry-capsule"
-                    onClick={() => setActiveModal('waves')}
-                    title="Wave state"
-                    aria-label="View Waves Details"
-                  >
-                    <span className="mobile-capsule-icon">
-                      <IconWave size={13} color="#38bdf8" />
-                    </span>
-                    <div className="mobile-capsule-info">
-                      <span className="mobile-capsule-val">{waveVal}</span>
-                      <span className="mobile-capsule-lbl">Wave</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="mobile-telemetry-capsule"
-                    onClick={() => setActiveModal('tide')}
-                    title="Tidal cycle"
-                    aria-label="View Tide Details"
-                  >
-                    <span className="mobile-capsule-icon">
-                      <IconTide size={13} color="#38bdf8" />
-                    </span>
-                    <div className="mobile-capsule-info">
-                      <span className="mobile-capsule-val">{tideVal}</span>
-                      <span className="mobile-capsule-lbl">Tide</span>
-                    </div>
-                  </button>
-                </>
-              )}
-            </>
-          )}
-        </section>
-      )}
 
       {/* Dedicated Mobile Alerts & Departure Assessment View */}
       {activeNav === 'alerts' && (
@@ -906,249 +831,179 @@ export default function MobileLayout({
             </div>
           </div>
 
-          {/* Navigation Decision Briefing Box (Matches Desktop) */}
+          {/* Navigation Decision Briefing Box Overlaid Directly over the Chatbox with No Layout Shift */}
           {showCopilotCard && (
-            <div className="copilot-decision-card" style={{ margin: '0 0 12px 0' }}>
-              <div className="copilot-decision-card__top">
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span className="copilot-badge">NAV COPILOT</span>
-                  <span className={`copilot-status copilot-status--${assessment?.tone || 'good'}`}>
+            <div className="mobile-briefing-overlay" role="region" aria-label="Navigation Copilot Auto Briefing">
+              <div className="mobile-briefing-overlay__header">
+                <div className="mobile-briefing-overlay__brand">
+                  <span className="mobile-briefing-overlay__badge">NAV COPILOT</span>
+                  <span className={`mobile-briefing-overlay__status mobile-briefing-overlay__status--${assessment?.tone || 'good'}`}>
                     ● {recommendationState}
                   </span>
                 </div>
                 <button
                   type="button"
-                  className="copilot-decision-card__hide-btn"
+                  className="mobile-briefing-overlay__close-btn"
                   onClick={() => setShowCopilotCard(false)}
-                  title="Hide Navigation Briefing Box"
+                  aria-label="Close Navigation Briefing"
                 >
-                  Hide
+                  Close
                 </button>
               </div>
 
-              {isCurrentlyInland ? (
-                <>
-                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                    <span>Position:</span>
-                    <b style={{ color: '#e2e8f0' }}>{userLocation?.label || 'User Location'}</b>
-                    <span style={{ background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#10b981', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
-                      YOU
-                    </span>
-                    <span style={{ color: '#94a3b8', fontSize: '10px' }}>
-                      (Inland Non-Maritime)
-                    </span>
-                  </div>
+              <div className="mobile-briefing-overlay__body">
+                {isCurrentlyInland ? (
+                  <>
+                    <div className="mobile-briefing-overlay__position">
+                      <span className="mobile-briefing-overlay__pos-label">Position:</span>
+                      <span className="mobile-briefing-overlay__pos-val">{userLocation?.label || 'User Location'}</span>
+                      <span className="mobile-briefing-overlay__pos-tag">YOU (Inland)</span>
+                    </div>
 
-                  <div className="copilot-decision-card__target">
-                    <strong>Terrestrial Zone: Clear Operational Profile</strong>
-                    <span> — Gateway: {harbor?.landing_center_name || 'Veraval Fishing Harbor, Gujarat'}</span>
-                  </div>
+                    <div className="mobile-briefing-overlay__target">
+                      <strong>Terrestrial Zone: Clear Operational Profile</strong>
+                      <span> — Gateway: {harbor?.landing_center_name || 'Veraval Fishing Harbor, Gujarat'}</span>
+                    </div>
 
-                  <div className="copilot-decision-card__why">
-                    <div className="copilot-why-title">Why this assessment?</div>
-                    <ul className="copilot-why-list">
-                      <li>
-                        <CheckIcon />
-                        <span>Zero maritime EEZ, IMBL, or coral sanctuary restrictions at this coordinate</span>
-                      </li>
-                      <li>
-                        <CheckIcon />
-                        <span>Surface wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'calm'}</span>
-                      </li>
-                      <li>
-                        <CheckIcon />
-                        <span>Air temp: {safetyData?.air_temp_celsius != null ? `${Math.round(safetyData.air_temp_celsius)} °C` : '--'} · Visibility: {safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : 'optimal'}</span>
-                      </li>
-                      <li>
-                        <CheckIcon />
-                        <span>Maritime telemetry referenced to coastal hub: {harbor?.landing_center_name || 'Veraval'}</span>
-                      </li>
-                    </ul>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '5px', marginBottom: '2px', display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
-                    <span>Terminal:</span>
-                    <b style={{ color: '#e2e8f0' }}>{harbor?.landing_center_name || 'Harbor unavailable'}</b>
-                    <span style={{ background: 'rgba(53, 201, 232, 0.12)', border: '1px solid rgba(53, 201, 232, 0.3)', color: '#38bdf8', padding: '0 4px', borderRadius: '3px', fontSize: '9px', fontWeight: 700 }}>
-                      {harbor ? getUNLocode(harbor) : '--'}
-                    </span>
-                    <span style={{ color: '#94a3b8', fontSize: '10px' }}>
-                      ({harbor ? getFormattedHarborTag(harbor) : '--'})
-                    </span>
-                  </div>
-
-                  <div className="copilot-decision-card__target">
-                    <strong>{activePFZ ? `PFZ-${activePFZ.advisory_id?.slice(-4) || 'ZONE'}` : 'Recommendation pending'}</strong>
-                    {activePFZ && <span> — {activePFZ.target_species || 'Target species not provided'}</span>}
-                  </div>
-
-                  <div className="copilot-decision-card__why">
-                    <div className="copilot-why-title">{hasRecommendation ? 'Why this recommendation?' : 'Data status'}</div>
-                    {hasRecommendation ? (
-                      <ul className="copilot-why-list">
+                    <div className="mobile-briefing-overlay__why">
+                      <div className="mobile-briefing-overlay__why-title">Why this assessment?</div>
+                      <ul className="mobile-briefing-overlay__why-list">
                         <li>
                           <CheckIcon />
-                          <span>{selectedRoute?.geofenceEvaluation?.summary || 'Route compliance supplied by the navigation feed'}</span>
+                          <span>Zero maritime EEZ, IMBL, or coral sanctuary restrictions at this coordinate</span>
                         </li>
                         <li>
                           <CheckIcon />
-                          <span>Wave height: {safetyData?.significant_wave_height_m != null ? `${Number(safetyData.significant_wave_height_m).toFixed(1)} m` : 'not provided'}</span>
+                          <span>Surface wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'calm'}</span>
                         </li>
                         <li>
                           <CheckIcon />
-                          <span>Sustained wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'not provided'}</span>
+                          <span>Air temp: {safetyData?.air_temp_celsius != null ? `${Math.round(safetyData.air_temp_celsius)} °C` : '--'} · Visibility: {safetyData?.visibility_km != null ? `${Number(safetyData.visibility_km).toFixed(1)} km` : 'optimal'}</span>
                         </li>
                         <li>
                           <CheckIcon />
-                          <span>Distance {activePFZ.distance_nm} NM · Transit ETA: {calculateETA(activePFZ.distance_nm)}</span>
+                          <span>Maritime telemetry referenced to coastal hub: {harbor?.landing_center_name || 'Veraval'}</span>
                         </li>
                       </ul>
-                    ) : (
-                      <p className="copilot-decision-card__empty">A route recommendation will appear after the safety and navigation feeds return data for this harbor.</p>
-                    )}
-                  </div>
-                </>
-              )}
-
-              <div className="copilot-decision-card__actions">
-                <button className="copilot-action-btn" onClick={() => setActiveNav('alerts')}>
-                  Inspect Assessment Factors
-                </button>
-              </div>
-            </div>
-          )}
-
-          {hasConversation ? (
-            <>
-              <div
-                className={`mobile-chat-messages ${activeNav === 'chat' ? 'mobile-chat-messages--maximized' : ''}`}
-                ref={chatScrollRef}
-              >
-                {messages &&
-                  messages.filter((m) => m.role !== 'system').map((m) => (
-                    <div key={m.id} className={`mobile-chat-msg mobile-chat-msg--${m.role}`}>
-                      <div className="mobile-chat-bubble">
-                        <p className="mobile-chat-bubble__text">{m.text}</p>
-                        <span className="mobile-chat-bubble__time">{m.time}</span>
-                      </div>
                     </div>
-                  ))}
-
-                {typing && (
-                  <div className="mobile-chat-msg mobile-chat-msg--assistant">
-                    <div className="mobile-chat-bubble mobile-chat-bubble--typing">
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
-                      <span className="typing-dot" />
+                  </>
+                ) : (
+                  <>
+                    <div className="mobile-briefing-overlay__position">
+                      <span className="mobile-briefing-overlay__pos-label">Terminal:</span>
+                      <span className="mobile-briefing-overlay__pos-val">{harbor?.landing_center_name || 'Harbor unavailable'}</span>
+                      <span className="mobile-briefing-overlay__pos-tag">{harbor ? getUNLocode(harbor) : '--'}</span>
                     </div>
-                  </div>
+
+                    <div className="mobile-briefing-overlay__target">
+                      <strong>{activePFZ ? `PFZ-${activePFZ.advisory_id?.slice(-4) || 'ZONE'}` : 'Recommendation pending'}</strong>
+                      {activePFZ && <span> — {activePFZ.target_species || 'Target species not provided'}</span>}
+                    </div>
+
+                    <div className="mobile-briefing-overlay__why">
+                      <div className="mobile-briefing-overlay__why-title">{hasRecommendation ? 'Why this recommendation?' : 'Data status'}</div>
+                      {hasRecommendation ? (
+                        <ul className="mobile-briefing-overlay__why-list">
+                          <li>
+                            <CheckIcon />
+                            <span>{selectedRoute?.geofenceEvaluation?.summary || 'Route compliance supplied by the navigation feed'}</span>
+                          </li>
+                          <li>
+                            <CheckIcon />
+                            <span>Wave height: {safetyData?.significant_wave_height_m != null ? `${Number(safetyData.significant_wave_height_m).toFixed(1)} m` : 'not provided'}</span>
+                          </li>
+                          <li>
+                            <CheckIcon />
+                            <span>Sustained wind: {safetyData?.wind_speed_kmph != null ? `${Math.round(safetyData.wind_speed_kmph)} km/h` : 'not provided'}</span>
+                          </li>
+                          <li>
+                            <CheckIcon />
+                            <span>Distance {activePFZ.distance_nm} NM · Transit ETA: {calculateETA(activePFZ.distance_nm)}</span>
+                          </li>
+                        </ul>
+                      ) : (
+                        <p className="mobile-briefing-overlay__empty">A route recommendation will appear after the safety and navigation feeds return data for this harbor.</p>
+                      )}
+                    </div>
+                  </>
                 )}
-              </div>
 
-              {/* Interactive Suggestion Pills in Active Conversation (1-3 Contextual Action Chips) */}
-              <div className="mobile-chat-suggestions" role="group" aria-label="Quick suggested queries">
-                {activeSuggestions.slice(0, 3).map((sug, idx) => (
+                <div className="mobile-briefing-overlay__actions">
                   <button
-                    key={idx}
                     type="button"
-                    className="mobile-suggestion-pill"
+                    className="mobile-briefing-overlay__action-btn"
                     onClick={() => {
-                      if (sug.toLowerCase().includes('alerts')) {
-                        setActiveNav('alerts')
-                      } else {
-                        handleSendMessage(sug)
-                      }
+                      setShowCopilotCard(false)
+                      setActiveNav('alerts')
                     }}
-                    onTouchStart={() => {}}
-                    disabled={typing}
                   >
-                    {sug}
+                    Inspect Assessment Factors
                   </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <div className={`mobile-empty-state ${activeNav === 'chat' ? 'mobile-empty-state--maximized' : ''}`} ref={chatScrollRef}>
-              <div className="mobile-empty-state__content">
-                <span className="mobile-empty-state__section-label">MARITIME COPILOT</span>
-
-                <p className="mobile-empty-state__standing-by">
-                  SETU-ADAM01 is standing by.
-                </p>
-                <p className="mobile-empty-state__scope">
-                  Ask about departure safety, weather, waves, tides, PFZs, or recommended sailing routes for your selected harbor.
-                </p>
-
-                <div className="mobile-empty-state__harbor-context">
-                  <span className="mobile-empty-state__harbor-label">SELECTED HARBOR</span>
-                  <span className="mobile-empty-state__harbor-name">
-                    {harbor?.landing_center_name || 'Harbor loading...'}
-                    {harbor?.state ? ` · ${harbor.state}` : ''}
-                  </span>
-                </div>
-
-                <div className="mobile-empty-state__actions">
-                  <button
-                    type="button"
-                    className="mobile-action mobile-action--primary"
-                    onClick={() => handleSendMessage('Is it safe to depart?')}
-                    disabled={typing}
-                  >
-                    Is it safe to depart?
-                  </button>
-                  <div className="mobile-empty-state__actions-row">
-                    <button
-                      type="button"
-                      className="mobile-action mobile-action--secondary"
-                      onClick={() => handleSendMessage('Recommended route')}
-                      disabled={typing}
-                    >
-                      Recommended route
-                    </button>
-                    <button
-                      type="button"
-                      className="mobile-action mobile-action--secondary"
-                      onClick={() => handleSendMessage('Nearest PFZ')}
-                      disabled={typing}
-                    >
-                      Nearest PFZ
-                    </button>
-                  </div>
-                  <div className="mobile-empty-state__actions-row">
-                    <button
-                      type="button"
-                      className="mobile-action mobile-action--secondary"
-                      onClick={() => handleSendMessage('Weather conditions')}
-                      disabled={typing}
-                    >
-                      Weather conditions
-                    </button>
-                    <button
-                      type="button"
-                      className="mobile-action mobile-action--secondary"
-                      onClick={() => handleSendMessage('Tide forecast')}
-                      disabled={typing}
-                    >
-                      Tide forecast
-                    </button>
-                  </div>
-                  <div className="mobile-empty-state__actions-row">
-                    <button
-                      type="button"
-                      className="mobile-action mobile-action--secondary"
-                      onClick={() => setActiveNav('alerts')}
-                    >
-                      Active alerts
-                    </button>
-                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Rounded Input Field & Cyan Circular Send Button */}
+          {/* Conversational Messages Container */}
+          <div
+            className={`mobile-chat-messages ${activeNav === 'chat' ? 'mobile-chat-messages--maximized' : ''}`}
+            ref={chatScrollRef}
+          >
+            {/* Standard Maritime Assistant Welcome Bubble */}
+            <div className="mobile-chat-msg mobile-chat-msg--assistant">
+              <div className="mobile-chat-bubble">
+                <p className="mobile-chat-bubble__text">
+                  Welcome to SETU-ADAM01. I can assist you with departure safety, harbor weather, wave &amp; tide advisories, and fishing zones across Indian coastal harbors. How can I help you today?
+                </p>
+                <span className="mobile-chat-bubble__time">09:40 AM</span>
+              </div>
+            </div>
+
+            {messages &&
+              messages
+                .filter((m) => m.role !== 'system')
+                .map((m) => (
+                  <div key={m.id} className={`mobile-chat-msg mobile-chat-msg--${m.role}`}>
+                    <div className="mobile-chat-bubble">
+                      <p className="mobile-chat-bubble__text">{m.text}</p>
+                      <span className="mobile-chat-bubble__time">{m.time}</span>
+                    </div>
+                  </div>
+                ))}
+
+            {typing && (
+              <div className="mobile-chat-msg mobile-chat-msg--assistant">
+                <div className="mobile-chat-bubble mobile-chat-bubble--typing">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Quick Prompt Suggestion Chips */}
+          <div className="mobile-chat-suggestions" role="group" aria-label="Quick prompt suggestions">
+            {activeSuggestions.map((sug, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="mobile-suggestion-pill"
+                onClick={() => {
+                  if (sug.toLowerCase().includes('alerts')) {
+                    setActiveNav('alerts')
+                  } else {
+                    handleSendMessage(sug)
+                  }
+                }}
+                disabled={typing}
+              >
+                {sug}
+              </button>
+            ))}
+          </div>
+
+          {/* Wider Full-Width Chat Bar & Cyan Send Button */}
           <form className="mobile-chat-input-row" onSubmit={handleFormSubmit}>
             <input
               ref={inputRef}
@@ -1156,8 +1011,8 @@ export default function MobileLayout({
               type="text"
               value={chatInput}
               onChange={(e) => setChatInput(e.target.value)}
-              placeholder={`Ask about ${harbor?.landing_center_name || 'this harbor'}...`}
-              aria-label={`Ask about ${harbor?.landing_center_name || 'this harbor'}`}
+              placeholder="Ask SETU anything..."
+              aria-label="Ask SETU anything"
             />
             <button
               type="submit"

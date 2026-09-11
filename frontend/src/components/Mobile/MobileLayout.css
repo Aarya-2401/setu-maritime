@@ -24,10 +24,10 @@
 }
 
 .mobile-layout--home .mobile-map-section {
-  flex: 0 0 42%;
-  height: 42%;
-  min-height: 180px;
-  max-height: 44%;
+  flex: 1 1 46%;
+  height: 46%;
+  min-height: 200px;
+  max-height: 48%;
   margin-bottom: 6px;
   display: flex;
   flex-direction: column;
@@ -39,44 +39,22 @@
   height: 100%;
 }
 
-.mobile-context-cards-rail {
-  flex-shrink: 0;
-  height: 42px;
-  min-height: 42px;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  overflow-x: auto;
-  overflow-y: hidden;
-  white-space: nowrap;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-}
-
-.mobile-context-cards-rail::-webkit-scrollbar {
-  display: none;
-}
-
-.mobile-context-cards-rail .mobile-telemetry-capsule {
-  flex-shrink: 0;
-}
-
 .mobile-layout--home .mobile-chat-section {
-  flex: 1;
-  min-height: 0;
+  flex: 1 1 40%;
+  min-height: 160px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .mobile-layout--home .mobile-chat-card {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  padding: 8px 10px 8px;
+  padding: 8px 8px 6px;
 }
 
 .mobile-layout--home .mobile-chat-messages {
@@ -93,7 +71,7 @@
   flex-wrap: nowrap;
   overflow-x: auto;
   gap: 6px;
-  margin: 4px 0 6px 0;
+  margin: 4px 0 4px 0;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
 }
@@ -105,6 +83,7 @@
 .mobile-layout--home .mobile-chat-input-row {
   flex-shrink: 0;
   margin-top: auto;
+  width: 100%;
 }
 
 /* Smooth Tab Transitions */
@@ -307,14 +286,15 @@
   margin-left: 2px;
 }
 
-/* 2. Four Telemetry Information Capsules (Condensed Horizontal Pills) */
+/* 2. Four Telemetry Information Capsules (Condensed 4-Column Grid matching reference) */
 .mobile-telemetry-capsules {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
   width: 100%;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   box-sizing: border-box;
+  flex-shrink: 0;
 }
 
 .mobile-telemetry-capsules--two {
@@ -323,17 +303,17 @@
 
 .mobile-telemetry-capsule {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: flex-start;
   justify-content: center;
-  gap: 5px;
-  background: #0d1928;
-  border: 1px solid rgba(56, 189, 248, 0.22);
-  border-radius: 9999px;
-  padding: 4px 6px;
-  min-height: 38px;
-  height: 38px;
+  background: #091526;
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  border-radius: 12px;
+  padding: 5px 8px;
+  height: 46px;
+  min-height: 46px;
   cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   box-sizing: border-box;
   text-align: left;
   transition: transform 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
@@ -341,17 +321,26 @@
   -webkit-tap-highlight-color: transparent;
   outline: none;
   min-width: 0;
+  width: 100%;
 }
 
 .mobile-telemetry-capsule:hover {
-  background: #112236;
+  background: #0e2038;
   border-color: rgba(56, 189, 248, 0.45);
 }
 
 .mobile-telemetry-capsule:active {
-  transform: scale(0.94);
-  background: rgba(56, 189, 248, 0.15);
+  transform: scale(0.95);
+  background: rgba(56, 189, 248, 0.18);
   border-color: #38bdf8;
+}
+
+.mobile-capsule-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
 }
 
 .mobile-capsule-icon {
@@ -361,16 +350,8 @@
   flex-shrink: 0;
 }
 
-.mobile-capsule-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
-  line-height: 1.15;
-}
-
 .mobile-capsule-val {
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 700;
   color: #ffffff;
   white-space: nowrap;
@@ -384,11 +365,11 @@
   font-size: 8.5px;
   color: #94a3b8;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.02em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  margin-top: 1px;
+  width: 100%;
 }
 
 /* 3. Live Map Section */
@@ -591,14 +572,16 @@
 }
 
 .mobile-chat-card {
+  position: relative;
   background: #081322;
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  padding: 10px 12px 8px;
+  padding: 8px 10px 8px;
   display: flex;
   flex-direction: column;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 .mobile-chat-card--maximized {
@@ -847,6 +830,220 @@
 .mobile-chat-send-btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+}
+
+/* Mobile Briefing Overlay - Positioned Absolutely Over Chat Card (No Vertical Shift, No Page Scroll) */
+.mobile-briefing-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  background: rgba(6, 13, 23, 0.96);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-radius: 14px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  box-sizing: border-box;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  animation: mobileBriefingFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes mobileBriefingFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.mobile-briefing-overlay__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.mobile-briefing-overlay__brand {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.mobile-briefing-overlay__badge {
+  font-size: 9px;
+  font-weight: 800;
+  background: rgba(56, 189, 248, 0.15);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.mobile-briefing-overlay__status {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mobile-briefing-overlay__status--good {
+  color: #10b981;
+}
+
+.mobile-briefing-overlay__status--moderate {
+  color: #f59e0b;
+}
+
+.mobile-briefing-overlay__status--bad {
+  color: #ef4444;
+}
+
+.mobile-briefing-overlay__close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #e2e8f0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-briefing-overlay__close-btn:active {
+  background: rgba(239, 68, 68, 0.2);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.mobile-briefing-overlay__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-height: 0;
+}
+
+.mobile-briefing-overlay__position {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  color: #94a3b8;
+  flex-wrap: wrap;
+}
+
+.mobile-briefing-overlay__pos-label {
+  color: #64748b;
+}
+
+.mobile-briefing-overlay__pos-val {
+  color: #e2e8f0;
+  font-weight: 700;
+}
+
+.mobile-briefing-overlay__pos-tag {
+  background: rgba(53, 201, 232, 0.12);
+  border: 1px solid rgba(53, 201, 232, 0.3);
+  color: #38bdf8;
+  padding: 0 4px;
+  border-radius: 3px;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.mobile-briefing-overlay__target {
+  font-size: 11px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 6px 8px;
+  border-radius: 6px;
+  border-left: 2px solid #38bdf8;
+}
+
+.mobile-briefing-overlay__target strong {
+  color: #ffffff;
+}
+
+.mobile-briefing-overlay__why-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.mobile-briefing-overlay__why-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mobile-briefing-overlay__why-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 11px;
+  color: #cbd5e1;
+  line-height: 1.35;
+}
+
+.mobile-briefing-overlay__why-list svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.mobile-briefing-overlay__empty {
+  font-size: 11px;
+  color: #94a3b8;
+  font-style: italic;
+  margin: 4px 0;
+}
+
+.mobile-briefing-overlay__actions {
+  margin-top: auto;
+  padding-top: 6px;
+}
+
+.mobile-briefing-overlay__action-btn {
+  width: 100%;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  color: #38bdf8;
+  font-size: 11.5px;
+  font-weight: 700;
+  padding: 7px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-briefing-overlay__action-btn:active {
+  background: rgba(56, 189, 248, 0.25);
 }
 
 /* 5. Fixed Bottom Navigation Bar */
@@ -1342,21 +1539,35 @@
   border-color: rgba(56, 189, 248, 0.3);
 }
 
-/* Narrow mobile screen adaptations (e.g. 320px) */
-@media (max-width: 350px) {
+/* Responsive adaptations for diverse phone sizes */
+@media (max-width: 360px) {
   .mobile-layout {
-    padding: 8px 8px 72px 8px;
+    padding: 6px 6px calc(52px + max(6px, env(safe-area-inset-bottom, 0px))) 6px;
+  }
+
+  .mobile-header {
+    margin-bottom: 6px;
+  }
+
+  .mobile-header__title {
+    font-size: 13.5px;
+  }
+
+  .mobile-header__location-text {
+    font-size: 11px;
+    max-width: 95px;
   }
 
   .mobile-telemetry-capsules {
     gap: 4px;
+    margin-bottom: 6px;
   }
 
   .mobile-telemetry-capsule {
-    padding: 3px 4px;
-    gap: 3px;
-    height: 36px;
-    min-height: 36px;
+    padding: 4px 5px;
+    height: 42px;
+    min-height: 42px;
+    border-radius: 10px;
   }
 
   .mobile-capsule-val {
@@ -1367,12 +1578,63 @@
     font-size: 7.5px;
   }
 
-  .mobile-header__title {
-    font-size: 13.5px;
+  .mobile-layout--home .mobile-map-section {
+    min-height: 180px;
+    margin-bottom: 4px;
   }
 
-  .mobile-header__location-text {
-    font-size: 11px;
-    max-width: 90px;
+  .mobile-suggestion-pill {
+    font-size: 10px;
+    padding: 4px 8px;
+  }
+
+  .mobile-chat-input {
+    font-size: 12.5px;
+    padding: 7px 12px;
+  }
+
+  .mobile-chat-send-btn {
+    width: 34px;
+    height: 34px;
+  }
+}
+
+@media (max-height: 700px) {
+  .mobile-layout--home .mobile-map-section {
+    flex: 1 1 42%;
+    height: 42%;
+    min-height: 165px;
+    max-height: 44%;
+    margin-bottom: 4px;
+  }
+
+  .mobile-telemetry-capsules {
+    margin-bottom: 6px;
+  }
+
+  .mobile-telemetry-capsule {
+    height: 40px;
+    min-height: 40px;
+  }
+
+  .mobile-chat-card {
+    padding: 6px 8px 5px;
+  }
+
+  .mobile-chat-header {
+    margin-bottom: 4px;
+    padding-bottom: 4px;
+  }
+
+  .mobile-chat-messages {
+    gap: 6px;
+  }
+
+  .mobile-chat-msg--assistant .mobile-chat-bubble {
+    padding: 7px 10px;
+  }
+
+  .mobile-chat-bubble__text {
+    font-size: 12px;
   }
 }
