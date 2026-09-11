@@ -505,6 +505,7 @@ function MapLayers({
             isTargetLayer &&
             (mapFocusTarget?.highlightAll ||
               mapFocusTarget?.scope === 'NATIONAL' ||
+              mapFocusTarget?.scope === 'STATE' ||
               (Array.isArray(mapFocusTarget?.highlightedPfzIds) &&
                 (mapFocusTarget.highlightedPfzIds.includes(advId) ||
                   mapFocusTarget.highlightedPfzIds.includes(adv.advisory_id) ||

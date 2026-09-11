@@ -73,7 +73,8 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
   }
 
   if (/\bpfzs?\b|potential fishing|fishing zone/.test(q)) {
-    const national = /\b(all|india|national|entire|across)\b/.test(q) || (asksShow && !/\b(near|nearest|best|closest)\b/.test(q) && /map/.test(q));
+    const hasState = Boolean(stateName);
+    const national = !hasState && (/\b(all|india|national|entire|across)\b/.test(q) || (asksShow && !/\b(near|nearest|best|closest)\b/.test(q) && /map/.test(q)));
     const nearby = /\b(near|nearest|best|closest|around)\b/.test(q);
     if (national && !nearby) {
       return {
@@ -90,7 +91,7 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
       layer: 'PFZ',
       scope: nearby ? 'NEAR_LOCATION' : (stateName ? 'STATE' : 'NEAR_LOCATION'),
       scopeName: stateName,
-      highlight: 'MATCHED',
+      highlight: stateName ? 'ALL' : 'MATCHED',
       fitBounds: true
     };
   }
@@ -351,17 +352,19 @@ export function normalizeMapIntent(
       return { ...PRESERVE_INTENT };
     }
     const national = intent.scope === 'NATIONAL';
+    const isState = !national && (intent.scope === 'STATE' || locRes.status === 'COASTAL_STATE') && intent.scope !== 'NEAR_LOCATION';
+    const scopeName = intent.scopeName || (national ? 'India' : (locRes.stateName || locRes.locationName));
     return {
       action: 'FIT_LAYER',
       layer: 'PFZ',
-      scope: intent.scope || (national ? 'NATIONAL' : 'NEAR_LOCATION'),
-      scopeName: intent.scopeName || (national ? 'India' : locRes.locationName),
+      scope: national ? 'NATIONAL' : (isState ? 'STATE' : (intent.scope || 'NEAR_LOCATION')),
+      scopeName,
       targetIds: ids,
-      highlight: national ? 'ALL' : 'MATCHED',
+      highlight: (national || isState) ? 'ALL' : 'MATCHED',
       fitBounds: true,
       bounds: boundsFromPfz(results, national),
-      harborId: intent.scope === 'NEAR_LOCATION' || intent.scope === 'CURRENT_HARBOR' ? locRes.harbor?.harbor_id : undefined,
-      location: locRes.harbor && intent.scope !== 'NATIONAL' ? {
+      harborId: (!national && !isState) ? locRes.harbor?.harbor_id : undefined,
+      location: locRes.harbor && !national && !isState ? {
         name: locRes.harbor.landing_center_name,
         latitude: Number(locRes.harbor.latitude),
         longitude: Number(locRes.harbor.longitude)

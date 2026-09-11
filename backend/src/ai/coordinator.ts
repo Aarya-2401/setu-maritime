@@ -92,6 +92,7 @@ export function fallbackPlan(query: string): CoordinatorRequest {
   let intent = 'MARITIME_OPERATION_ASSESSMENT';
   if (mapIntent.layer === 'RESTRICTED_ZONES') intent = 'RESTRICTED_ZONES';
   else if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'NATIONAL') intent = 'PFZ_OVERVIEW';
+  else if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'STATE') intent = 'PFZ_STATE';
   else if (mapIntent.layer === 'PFZ') intent = 'PFZ_NEARBY';
   else if (mapIntent.layer === 'CYCLONES') intent = 'CYCLONE_TRACK';
   else if (mapIntent.layer === 'EEZ') intent = 'EEZ_BOUNDARY';
@@ -150,6 +151,22 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
     const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
     if (!count) return 'No PFZ advisories are currently available. The map was left unchanged.';
     return `I have displayed available PFZ advisories across India (${count} fishing grounds) and fitted the map to the national advisory overview.`;
+  }
+
+  if (mapIntent.layer === 'PFZ' && (mapIntent.scope === 'STATE' || isCoastalState)) {
+    const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
+    const scope = mapIntent.scopeName || stateName;
+    if (!count) return `No PFZ advisories are currently active for ${scope} waters. The map was left unchanged.`;
+    const recs = (pfzResult?.recommendations as any[]) || [];
+    const species = Array.from(new Set(recs.map((r: any) => r.target_species || r.targetSpecies).filter(Boolean))).slice(0, 3).join(', ');
+    const cleanHarbor = (name: string) => name.split(' (')[0].replace(/\s+(Fishing|Fishery)?\s*Harbor.*$/i, '').trim();
+    const harbors = Array.from(new Set(recs.map((r: any) => {
+      const raw = r.landing_center_name || r.referenceHarbor || r.reference_harbor || r.harborName || (r.harbor_id ? `Harbor #${r.harbor_id}` : null);
+      return raw ? cleanHarbor(raw) : null;
+    }).filter(Boolean))).slice(0, 3).join(', ');
+    const speciesPart = species ? ` targeting ${species}` : '';
+    const harborsPart = harbors ? ` off ${harbors}` : '';
+    return `I found ${count} PFZ advisories across ${scope} waters${harborsPart}${speciesPart} and fitted the map to the ${scope} coastal overview.`;
   }
 
   if (mapIntent.layer === 'PFZ') {
@@ -230,6 +247,7 @@ MapIntent rules:
 - If the user asks to SHOW a maritime element on the map, that element is the map focus.
 - Restricted zones / sanctuary / MPA → FIT_LAYER, layer RESTRICTED_ZONES. If a state is named, scope STATE and scopeName of that state.
 - All PFZs / PFZ map / PFZs in India → FIT_LAYER, layer PFZ, scope NATIONAL, highlight ALL.
+- State PFZs (e.g. PFZs in Kerala / Tamil Nadu) → FIT_LAYER, layer PFZ, scope STATE and scopeName of that state, highlight ALL.
 - PFZ near a harbor → FIT_LAYER, layer PFZ, scope NEAR_LOCATION.
 - Cyclone track → FIT_LAYER, layer CYCLONES.
 - EEZ → FIT_LAYER, layer EEZ. Never call EEZ "territorial waters".
@@ -269,6 +287,7 @@ MAP LANGUAGE RULES:
 - If PRESERVE, do not say you centered, highlighted, or fitted the map.
 - For restricted-zone queries, describe matching zones — do NOT mention reference harbors, do NOT mention sea conditions or fishing grounds, and do NOT say you centered on Sultanpur or Veraval.
 - For national PFZ, say you displayed available PFZs across India.
+- For state PFZ queries (e.g. "PFZs in Kerala"), describe the state's coastal waters and advisories — do NOT collapse to a single harbor (like Cochin), do NOT claim you focused on a single harbor, and do NOT mention an inland reference point.
 - Never call the EEZ "territorial waters". Territorial sea is 12 NM; EEZ is the 200 NM exclusive economic zone.
 - Inland locations have no maritime harbor. Never imply they were resolved to Veraval.
 ${isCoastalState ? `- Query location is the coastal state ${locRes.stateName}. A reference harbor (${locRes.referenceHarbor?.landing_center_name || locRes.harbor?.landing_center_name}) may be used for telemetry only. Do not treat that harbor as the map target unless MapIntent is FOCUS_HARBOR.` : ''}
@@ -288,6 +307,10 @@ Telemetry & Agent Findings: ${JSON.stringify(compact)}`;
         }
         // Safety guard: if national PFZ query, ensure no single harbor claim leaks
         if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'NATIONAL' && (/veraval|sultanpur|centered the radar/i.test(text))) {
+          return fb;
+        }
+        // Safety guard: if state PFZ query, ensure no single harbor claim leaks
+        if (mapIntent.layer === 'PFZ' && (mapIntent.scope === 'STATE' || isCoastalState) && (/centered the radar on|focused on cochin|near cochin fishing harbor|near sultanpur/i.test(text))) {
           return fb;
         }
         return text;

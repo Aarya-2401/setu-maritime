@@ -173,7 +173,10 @@ export async function runMarineAlert(req: AgentRequest) { return safe('marine-al
 }); }
 
 export async function runPfz(req: AgentRequest) { return safe('pfz', async () => {
-  const isNational = req.mapIntent?.scope === 'NATIONAL' || /\b(all|india|national|entire|across)\b/i.test(req.query);
+  const targetState = (req.mapIntent?.scope === 'STATE' ? req.mapIntent.scopeName : null) ||
+    (req.locationType === 'COASTAL_STATE' ? req.location?.name : null) ||
+    extractCoastalStateName(req.query);
+  const isNational = !targetState && (req.mapIntent?.scope === 'NATIONAL' || /\b(all|india|national|entire|across)\b/i.test(req.query));
   let rows: any[] = [];
   let h: any = null;
 
@@ -187,6 +190,22 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     if (!rows.length) {
       rows = FALLBACK_PFZ_NATIONAL;
     }
+  } else if (targetState) {
+    try {
+      const [stateRows]: any = await pool.query(
+        `SELECT * FROM v_pfz_operational_advisory WHERE LOWER(state) LIKE ? ORDER BY advisory_date DESC, distance_km ASC LIMIT 50`,
+        [`%${targetState.toLowerCase().trim()}%`]
+      );
+      if (stateRows && stateRows.length > 0) rows = stateRows;
+    } catch (e: any) {
+      console.warn('[ORCA] State PFZ DB query failed; using fallback', e?.message || e);
+    }
+    if (!rows.length) {
+      rows = FALLBACK_PFZ_NATIONAL.filter((p: any) =>
+        (p.state || '').toLowerCase().includes(targetState.toLowerCase().trim())
+      );
+    }
+    h = await resolveHarbor(req.location);
   } else {
     h = await resolveHarbor(req.location);
     try {
@@ -259,7 +278,13 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
   });
 
   const best = recommendations.find((x: any) => x.latitude != null && x.longitude != null) || recommendations[0];
-  const data = { recommendations, count: recommendations.length, isNational };
+  const data = {
+    recommendations,
+    count: recommendations.length,
+    isNational,
+    scope: targetState ? 'STATE' : (isNational ? 'NATIONAL' : 'NEAR_LOCATION'),
+    scopeName: targetState || (isNational ? 'India' : (h?.landing_center_name || 'Coastal Waters'))
+  };
 
   let mapUpdate: Record<string, unknown> | undefined;
   if (isNational && recommendations.length > 0) {
@@ -268,6 +293,16 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
       layer: 'PFZ',
       scope: 'NATIONAL',
       scopeName: 'India',
+      targetIds: recommendations.map((r) => r.id),
+      highlight: 'ALL',
+      fitBounds: true
+    };
+  } else if (targetState && recommendations.length > 0) {
+    mapUpdate = {
+      action: 'fit_layer',
+      layer: 'PFZ',
+      scope: 'STATE',
+      scopeName: targetState,
       targetIds: recommendations.map((r) => r.id),
       highlight: 'ALL',
       fitBounds: true
@@ -289,7 +324,25 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     };
   }
 
-  return { agent: 'pfz', status: 'success', data, cardUpdates: [card('pfz', 'pfz', { best: best ?? null, count: recommendations.length, isNational }, h?.landing_center_name)], mapUpdate, confidence: .94, timestamp: now() };
+  const cardLocation = targetState ? `${targetState} Waters` : (isNational ? 'India' : (h?.landing_center_name || 'Coastal Waters'));
+  const cardData = {
+    best: best ?? null,
+    count: recommendations.length,
+    isNational,
+    scope: targetState ? 'STATE' : (isNational ? 'NATIONAL' : 'NEAR_LOCATION'),
+    scopeName: targetState || (isNational ? 'India' : h?.landing_center_name),
+    state: targetState || null
+  };
+
+  return {
+    agent: 'pfz',
+    status: 'success',
+    data,
+    cardUpdates: [card('pfz', 'pfz', cardData, cardLocation)],
+    mapUpdate,
+    confidence: .94,
+    timestamp: now()
+  };
 }); }
 
 export async function runZone(req: AgentRequest) { return safe('zone', async () => {

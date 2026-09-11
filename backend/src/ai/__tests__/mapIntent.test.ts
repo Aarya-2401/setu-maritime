@@ -10,6 +10,8 @@ import {
 } from '../mapIntent';
 import { resolveLocation, LocationResolution } from '../db';
 import type { AgentResult } from '../types';
+import { runPfz } from '../agents';
+import { fallbackPlan, fallbackSynthesize } from '../coordinator';
 
 test('1. MapIntent schema validation', () => {
   const preserve = mapIntentSchema.safeParse({
@@ -289,3 +291,59 @@ test('12. Query: show IMBL (International Maritime Boundary Line)', () => {
   assert.equal(inferred.scope, 'NATIONAL');
   assert.equal(inferred.fitBounds, true);
 });
+
+test('13. Query: PFZs in Kerala (ONE STORY: MapIntent, CardIntent, and Answer)', async () => {
+  const query = 'PFZs in Kerala';
+  const inferred = inferMapIntentFromQuery(query);
+
+  assert.equal(inferred.action, 'FIT_LAYER');
+  assert.equal(inferred.layer, 'PFZ');
+  assert.equal(inferred.scope, 'STATE');
+  assert.equal(inferred.scopeName, 'Kerala');
+  assert.equal(inferred.highlight, 'ALL');
+  assert.equal(inferred.fitBounds, true);
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.intent, 'PFZ_STATE');
+  assert.equal(plan.mapIntent?.layer, 'PFZ');
+  assert.equal(plan.mapIntent?.scope, 'STATE');
+
+  const pfzResult = await runPfz({
+    query,
+    location: { name: 'Kerala' },
+    locationType: 'COASTAL_STATE',
+    mapIntent: inferred
+  });
+
+  assert.equal(pfzResult.status, 'success');
+  const recs = ((pfzResult.data as any).recommendations as any[]) || [];
+  assert.ok(recs.length >= 5, `Expected multiple PFZs in Kerala, got ${recs.length}`);
+  assert.ok(recs.every((r: any) => (r.state || '').toLowerCase() === 'kerala'), 'All advisories must be in Kerala');
+
+  // CardIntent check: location must be "Kerala Waters", not a single harbor
+  assert.ok(pfzResult.cardUpdates.length > 0, 'Must produce PFZ card update');
+  const pfzCard = pfzResult.cardUpdates[0] as any;
+  assert.equal(pfzCard.location, 'Kerala Waters', 'Card location must be Kerala Waters');
+  assert.equal(pfzCard.data.scope, 'STATE');
+  assert.equal(pfzCard.data.state, 'Kerala');
+
+  // MapIntent normalization check
+  const locRes = await resolveLocation('Kerala');
+  const normalized = normalizeMapIntent(plan, [pfzResult], locRes, query);
+  assert.equal(normalized.action, 'FIT_LAYER');
+  assert.equal(normalized.layer, 'PFZ');
+  assert.equal(normalized.scope, 'STATE');
+  assert.equal(normalized.scopeName, 'Kerala');
+  assert.equal(normalized.highlight, 'ALL');
+  assert.equal(normalized.harborId, undefined, 'Harbor ID must not be pinned to a single harbor');
+  assert.equal(normalized.location, undefined, 'Location must not be pinned to a single harbor');
+  assert.ok(normalized.bounds, 'Must compute bounding box across all Kerala PFZs');
+  const [[minLat, minLon], [maxLat, maxLon]] = normalized.bounds;
+  assert.ok(minLat < 9.0 && maxLat > 11.5, `Bounds [${minLat}, ${maxLat}] must span Kerala coast`);
+
+  // Answer synthesis check: must tell the same story
+  const synthesized = fallbackSynthesize(query, plan, [pfzResult], locRes, normalized);
+  assert.ok(synthesized.includes('Kerala waters'), 'Answer must mention Kerala waters');
+  assert.ok(!synthesized.includes('Cochin Fishing Harbor (Thoppumpady)'), 'Answer must not collapse to single harbor name');
+});
+

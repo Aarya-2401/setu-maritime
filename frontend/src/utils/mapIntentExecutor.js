@@ -145,6 +145,7 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     // B. PFZ (Potential Fishing Zones)
     if (layer === 'PFZ') {
       const isNational = scope === 'NATIONAL';
+      const isState = scope === 'STATE';
       if (payload?.mapData?.pfz && onUpdateDynamicAdvisories) {
         onUpdateDynamicAdvisories(payload.mapData.pfz);
       }
@@ -153,17 +154,20 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       }
       const label = isNational
         ? 'National PFZ View (India)'
-        : (intent.scopeName ? 'PFZ Hotspots: ' + intent.scopeName : 'Potential Fishing Zone');
+        : (isState
+          ? 'PFZ Overview: ' + (intent.scopeName || 'State') + ' Waters'
+          : (intent.scopeName ? 'PFZ Hotspots: ' + intent.scopeName : 'Potential Fishing Zone'));
 
       if (onMapFocus) {
         onMapFocus({
           layer: 'PFZ',
-          scope: isNational ? 'NATIONAL' : 'NEAR_LOCATION',
+          scope: isNational ? 'NATIONAL' : (isState ? 'STATE' : 'NEAR_LOCATION'),
+          scopeName: intent.scopeName,
           bounds: intent.bounds,
           highlightedPfzIds: targetIds,
           lat: intent.location?.latitude,
           lon: intent.location?.longitude,
-          zoom: isNational ? 5 : 10,
+          zoom: isNational ? 5 : (isState ? 8 : 10),
           label,
           timestamp: Date.now()
         });
