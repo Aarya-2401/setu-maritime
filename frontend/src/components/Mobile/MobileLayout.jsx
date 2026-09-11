@@ -364,7 +364,14 @@ export default function MobileLayout({
     return DEFAULT_MOBILE_CHIPS
   }, [messages])
 
-  const mobilePreviousMapIntentRef = useRef(null)
+  const mobileConversationContextRef = useRef({
+    previousMapIntent: null,
+    lastQueryTarget: null,
+    lastResolvedLocation: null,
+    lastDashboardContext: null,
+    lastRelevantDomain: null,
+    lastSpecies: null
+  })
 
   // Unified message sender for both typed input and suggestion pills
   async function handleSendMessage(text) {
@@ -383,9 +390,23 @@ export default function MobileLayout({
 
     const context = {
       selectedHarborId: harbor?.harbor_id,
-      previousMapIntent: mobilePreviousMapIntentRef.current,
+      previousMapIntent: mobileConversationContextRef.current.previousMapIntent,
+      lastQueryTarget: mobileConversationContextRef.current.lastQueryTarget,
+      lastResolvedLocation: mobileConversationContextRef.current.lastResolvedLocation,
+      lastDashboardContext: mobileConversationContextRef.current.lastDashboardContext,
+      lastRelevantDomain: mobileConversationContextRef.current.lastRelevantDomain,
+      lastSpecies: mobileConversationContextRef.current.lastSpecies,
       previousLocation: harbor ? {
         name: harbor.landing_center_name,
+        latitude: Number(harbor.latitude),
+        longitude: Number(harbor.longitude)
+      } : undefined,
+      userLocation: userLocation?.lat && userLocation?.lon ? {
+        latitude: Number(userLocation.lat),
+        longitude: Number(userLocation.lon),
+        label: userLocation.label
+      } : undefined,
+      currentHarborCoords: harbor?.latitude && harbor?.longitude ? {
         latitude: Number(harbor.latitude),
         longitude: Number(harbor.longitude)
       } : undefined
@@ -395,7 +416,14 @@ export default function MobileLayout({
       const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
         const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate || { action: 'PRESERVE' }
-        mobilePreviousMapIntentRef.current = effectiveIntent
+        mobileConversationContextRef.current = {
+          previousMapIntent: effectiveIntent,
+          lastQueryTarget: aiResponse.queryTarget || aiResponse.dashboardIntent?.queryTarget || mobileConversationContextRef.current.lastQueryTarget,
+          lastResolvedLocation: aiResponse.location || mobileConversationContextRef.current.lastResolvedLocation,
+          lastDashboardContext: aiResponse.dashboardIntent?.context || mobileConversationContextRef.current.lastDashboardContext,
+          lastRelevantDomain: effectiveIntent.layer || aiResponse.dashboardIntent?.context || mobileConversationContextRef.current.lastRelevantDomain,
+          lastSpecies: aiResponse.agentResults?.find((r) => r.agent === 'species')?.data?.species || mobileConversationContextRef.current.lastSpecies
+        }
         executeMapIntent(effectiveIntent, aiResponse, {
           onSelectHarbor,
           onMapFocus,

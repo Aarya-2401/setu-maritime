@@ -458,3 +458,157 @@ test('17. Query: Show cyclone activity near Odisha (Arbitrary State Cyclone Trac
   assert.equal(cycloneCard.cardId, 'cyclone');
 });
 
+test('18. TEST 1: Query: Show me all PFZs near Mangalore on the map (Local PFZ Bounds and Sector: Karnataka)', async () => {
+  const query = 'Show me all PFZs near Mangalore on the map. Update the dashboard cards with Mangalore-specific PFZ information.';
+  const inferred = inferMapIntentFromQuery(query);
+  assert.equal(inferred.layer, 'PFZ');
+  assert.equal(inferred.scope, 'NEAR_LOCATION');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.location?.name, 'Mangalore');
+  assert.equal(plan.dashboardIntent?.primaryCard, 'pfz');
+
+  const pfzResult = await runPfz({
+    query,
+    location: { name: 'Mangalore' },
+    mapIntent: inferred
+  });
+
+  assert.equal(pfzResult.status, 'success');
+  assert.equal(pfzResult.data.isNational, false, 'PFZs near Mangalore must NOT be national scope');
+  assert.equal(pfzResult.data.scope, 'NEAR_LOCATION');
+  assert.ok(pfzResult.data.recommendations.length > 0, 'Must have PFZ recommendations near Mangalore');
+
+  const card = pfzResult.cardUpdates[0]?.data as any;
+  assert.equal(card.state, 'Karnataka', 'State must be Karnataka, not Gujarat');
+  assert.equal(card.sector, 'Karnataka', 'Sector must be Karnataka');
+
+  const normalized = normalizeMapIntent(plan, [pfzResult], { status: 'SUPPORTED', locationName: 'Mangalore' }, query);
+  assert.equal(normalized.layer, 'PFZ');
+  assert.ok(normalized.bounds, 'Must compute bounds');
+  // Bounds must be in Karnataka region (lat around 12-14), not spanning Gujarat or all India
+  const [minCoords, maxCoords] = normalized.bounds!;
+  assert.ok(minCoords[0] >= 10 && minCoords[0] <= 14, `Min latitude ${minCoords[0]} should be near Karnataka`);
+  assert.ok(maxCoords[0] <= 16, `Max latitude ${maxCoords[0]} should not span northern India`);
+});
+
+test('19. TEST 2: Sequence: Mangalore PFZ followed by Paradip Restricted Zones (Layer Isolation and Consistent Story)', async () => {
+  const previousMapIntent = {
+    action: 'FIT_LAYER' as const,
+    layer: 'PFZ' as const,
+    scope: 'NEAR_LOCATION' as const,
+    scopeName: 'Mangalore',
+    highlight: 'ALL' as const,
+    fitBounds: true
+  };
+  const context = {
+    previousMapIntent,
+    lastQueryTarget: 'Mangalore',
+    lastRelevantDomain: 'PFZ'
+  };
+
+  const turn2Query = 'Show me the restricted maritime zones near Paradip on the map. Update the dashboard with the relevant restricted-zone information.';
+  const inferred = inferMapIntentFromQuery(turn2Query);
+  assert.equal(inferred.layer, 'RESTRICTED_ZONES');
+
+  // Must NOT inherit previous PFZ layer!
+  const inherited = inheritMapIntent(turn2Query, inferred, context);
+  assert.equal(inherited?.layer, 'RESTRICTED_ZONES', 'Must keep RESTRICTED_ZONES, not inherit PFZ');
+
+  const plan = fallbackPlan(turn2Query, context);
+  assert.equal(plan.mapIntent?.layer, 'RESTRICTED_ZONES');
+  assert.equal(plan.location?.name, 'Paradip');
+  assert.equal(plan.dashboardIntent?.context, 'RESTRICTED_ZONES');
+
+  const zoneResult = await runZone({
+    query: turn2Query,
+    location: { name: 'Paradip' },
+    mapIntent: inferred
+  });
+  assert.equal(zoneResult.status, 'success');
+  assert.ok(zoneResult.data.restrictedZones.length > 0, 'Must find restricted zones near Paradip');
+
+  const normalized = normalizeMapIntent(plan, [zoneResult], { status: 'SUPPORTED', locationName: 'Paradip' }, turn2Query, context);
+  assert.equal(normalized.layer, 'RESTRICTED_ZONES');
+  assert.equal(normalized.action, 'FIT_LAYER');
+
+  const synthesis = fallbackSynthesize(turn2Query, plan, [zoneResult], { status: 'SUPPORTED', locationName: 'Paradip' }, normalized);
+  assert.ok(synthesis.includes('restricted zone'), 'Synthesis must describe restricted zones');
+  assert.ok(!synthesis.includes('weather'), 'Synthesis must not talk about weather');
+  assert.ok(!synthesis.includes('favorable'), 'Synthesis must not fall back to generic favorable weather');
+});
+
+test('20. TEST 3: Query: What will the weather be tomorrow near Mumbai? (PRESERVE Map and Maharashtra Sector)', async () => {
+  const query = 'What will the weather be tomorrow near Mumbai?';
+  const inferred = inferMapIntentFromQuery(query);
+  assert.equal(inferred.action, 'PRESERVE', 'Weather queries without map commands must preserve map view');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.intent, 'WEATHER_FORECAST');
+  assert.equal(plan.location?.name, 'Mumbai');
+  assert.equal(plan.dashboardIntent?.primaryCard, 'weather');
+  assert.equal(plan.dashboardIntent?.queryTarget, 'Mumbai');
+
+  const weatherResult = await runWeather({
+    query,
+    location: { name: 'Mumbai' }
+  });
+  assert.equal(weatherResult.status, 'success');
+  assert.equal(weatherResult.data.state, 'Maharashtra');
+  assert.equal(weatherResult.data.sector, 'Maharashtra');
+});
+
+test('21. TEST 4: Query: Show me all available PFZs across India on the map (National Overview)', async () => {
+  const query = 'Show me all available PFZs across India on the map.';
+  const inferred = inferMapIntentFromQuery(query);
+  assert.equal(inferred.action, 'FIT_LAYER');
+  assert.equal(inferred.layer, 'PFZ');
+  assert.equal(inferred.scope, 'NATIONAL');
+
+  const plan = fallbackPlan(query);
+  assert.equal(plan.mapIntent?.scope, 'NATIONAL');
+  assert.equal(plan.dashboardIntent?.context, 'PFZ_OVERVIEW');
+
+  const pfzResult = await runPfz({
+    query,
+    mapIntent: inferred
+  });
+  assert.equal(pfzResult.data.isNational, true);
+
+  const normalized = normalizeMapIntent(plan, [pfzResult], { status: 'UNKNOWN' }, query);
+  assert.equal(normalized.scope, 'NATIONAL');
+  assert.deepEqual(normalized.bounds, [[7.0, 68.0], [23.5, 89.5]], 'National bounds must span India');
+});
+
+test('22. TEST 5: Referential Follow-up: What species are reported there? (Resolves to previous India PFZ context)', async () => {
+  const context = {
+    lastQueryTarget: 'India',
+    lastRelevantDomain: 'PFZ',
+    previousMapIntent: {
+      action: 'FIT_LAYER' as const,
+      layer: 'PFZ' as const,
+      scope: 'NATIONAL' as const,
+      scopeName: 'India',
+      highlight: 'ALL' as const,
+      fitBounds: true
+    }
+  };
+
+  const query = 'What species are reported there?';
+  const plan = fallbackPlan(query, context);
+  assert.equal(plan.location?.name, 'India', 'Must resolve there to India');
+  assert.ok(plan.requestedAgents.includes('species'), 'Must request species agent');
+  assert.ok(plan.requestedAgents.includes('pfz'), 'Must request pfz agent for target species');
+  assert.equal(plan.mapIntent?.action, 'PRESERVE', 'Follow-up question must preserve map view');
+
+  const pfzResult = await runPfz({
+    query,
+    location: { name: 'India' },
+    mapIntent: plan.mapIntent
+  });
+
+  const synthesis = fallbackSynthesize(query, plan, [pfzResult], { status: 'UNKNOWN' }, plan.mapIntent);
+  assert.ok(synthesis.includes('species'), 'Synthesis must answer with species');
+  assert.ok(!synthesis.includes("Tomorrow's outlook near the selected maritime context looks favorable"), 'Must not fall back to generic harbor weather');
+});
+

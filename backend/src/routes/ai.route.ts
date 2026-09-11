@@ -31,8 +31,12 @@ export function registerAiRoute(app: Express) {
         location: {
           name: state.locationResolution?.locationName || resolvedHarbor?.landing_center_name || null,
           type: state.locationResolution?.locationType || locStatus,
+          state: state.locationResolution?.stateName || resolvedHarbor?.state || null,
+          country: 'India',
           latitude: locationCoords?.latitude ?? (resolvedHarbor ? Number(resolvedHarbor.latitude) : null),
-          longitude: locationCoords?.longitude ?? (resolvedHarbor ? Number(resolvedHarbor.longitude) : null)
+          longitude: locationCoords?.longitude ?? (resolvedHarbor ? Number(resolvedHarbor.longitude) : null),
+          harborId: resolvedHarbor?.harbor_id || null,
+          unlocode: resolvedHarbor?.unlocode || null
         },
         harborId: resolvedHarbor?.harbor_id || null,
         resolvedHarbor,

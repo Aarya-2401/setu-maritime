@@ -58,6 +58,14 @@ export interface ConversationContext {
   previousLocation?: MapLocation;
   previousLocationType?: LocationType;
   previousQueryTarget?: string;
+  lastQueryTarget?: string;
+  lastResolvedLocation?: Record<string, unknown>;
+  lastDashboardContext?: string;
+  lastRelevantDomain?: string;
+  lastAgentResults?: any[];
+  lastSpecies?: string[];
+  userLocation?: MapLocation;
+  currentHarborCoords?: MapLocation;
 }
 
 export interface OrcaLocation {

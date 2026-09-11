@@ -8,6 +8,7 @@ export default function WeatherCard({
   safetyData,
   loading,
   customLocationName,
+  customLocationState,
   isUserLocation = false,
   userLocation
 }) {
@@ -25,7 +26,7 @@ export default function WeatherCard({
   const locationName = customLocationName || harbor?.landing_center_name || 'Coastal Station'
   const sectorName = isUserLocation
     ? (userLocation?.state ? `Inland (${userLocation.state})` : 'Inland Locality')
-    : (safetyData?.sector || harbor?.sector || '--')
+    : (customLocationState || safetyData?.state || safetyData?.sector || (customLocationName ? '--' : (harbor?.sector || '--')))
 
   const visNum = safetyData?.visibility_km != null ? Number(safetyData.visibility_km) : null
   const visImpact = visNum == null ? '--' : visNum >= 5.0 ? 'CLEAR' : visNum >= 2.5 ? 'REDUCED' : 'RESTRICTED'

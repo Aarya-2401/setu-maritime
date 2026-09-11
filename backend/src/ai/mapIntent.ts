@@ -14,9 +14,11 @@ const VALID_LAYERS: MapLayer[] = ['PFZ', 'ROUTES', 'RESTRICTED_ZONES', 'EEZ', 'I
 
 export function isReferentialMapQuery(query: string): boolean {
   const q = query.toLowerCase();
+  const hasExplicitDomain = /\b(restricted|sanctuary|sanctuaries|eez|imbl|cyclone|pfz|pfzs|fishing zone|weather|wave|swell|tide|wind)\b/i.test(q);
+  if (hasExplicitDomain) return false;
   return (
-    /\b(show|display|highlight|zoom|fit)\b[\s\S]{0,40}\b(them|those|it|this|the\s+[\w\s]{0,25}(zones?|pfzs?|tracks?|routes?|areas?))\b/.test(q) ||
-    /\b(on (the )?map|in (the )?map|zoom into them|highlight them|show them)\b/.test(q)
+    /\b(show|display|highlight|zoom|fit)\b[\s\S]{0,30}\b(them|those|it|that)\b/i.test(q) ||
+    /\b(zoom into them|highlight them|show them|plot them|view them)\b/i.test(q)
   );
 }
 
@@ -74,9 +76,10 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
 
   if (/\bpfzs?\b|potential fishing|fishing zone/.test(q)) {
     const hasState = Boolean(stateName);
-    const national = !hasState && (/\b(all|india|national|entire|across)\b/.test(q) || (asksShow && !/\b(near|nearest|best|closest)\b/.test(q) && /map/.test(q)));
-    const nearby = /\b(near|nearest|best|closest|around)\b/.test(q);
-    if (national && !nearby) {
+    const nearby = /\b(near|nearest|best|closest|around)\b/i.test(q);
+    const isIndia = /\b(across\s+india|entire\s+country|nationwide|all\s+available\s+pfz|all\s+pfzs?\s+across\s+india)\b/i.test(q) || (/\bindia\b/i.test(q) && !nearby);
+    const national = !hasState && !nearby && (isIndia || (asksShow && /map/.test(q)));
+    if (national) {
       return {
         action: 'FIT_LAYER',
         layer: 'PFZ',
@@ -89,7 +92,7 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
     return {
       action: 'FIT_LAYER',
       layer: 'PFZ',
-      scope: nearby ? 'NEAR_LOCATION' : (stateName ? 'STATE' : 'NEAR_LOCATION'),
+      scope: stateName ? 'STATE' : 'NEAR_LOCATION',
       scopeName: stateName,
       highlight: stateName ? 'ALL' : 'MATCHED',
       fitBounds: true
@@ -198,6 +201,11 @@ export function inheritMapIntent(
       fitBounds: true,
       highlight: prev.highlight && prev.highlight !== 'NONE' ? prev.highlight : 'ALL'
     };
+  }
+
+  // If current intent specifies an explicit layer different from prev, never contaminate it
+  if (planIntent?.layer && prev?.layer && planIntent.layer !== prev.layer) {
+    return planIntent;
   }
 
   // If current intent matches layer but has no explicit scope, inherit previous scope

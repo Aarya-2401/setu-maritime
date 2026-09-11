@@ -34,7 +34,9 @@ export async function runWeather(req: AgentRequest) { return safe('weather', asy
     precipitation: num(firstDefined(r, ['precipitation', 'precipitation_mm'])) || 0,
     visibility: num(firstDefined(r, ['visibility_km', 'visibility', 'visibility_m'])),
     pressure: num(firstDefined(r, ['surface_pressure_hpa', 'pressure', 'surface_pressure'])),
-    humidity: num(firstDefined(r, ['relative_humidity', 'humidity'])) || 75
+    humidity: num(firstDefined(r, ['relative_humidity', 'humidity'])) || 75,
+    state: h.state,
+    sector: h.sector || h.state
   };
   return { agent: 'weather', status: 'success', data, cardUpdates: [card('weather', 'weather', data, h.landing_center_name)], confidence: .96, timestamp: now() };
 }); }
@@ -58,7 +60,9 @@ export async function runWind(req: AgentRequest) { return safe('wind', async () 
     speed,
     gust,
     direction: num(firstDefined(r, ['wind_direction', 'wind_direction_deg'])) || 245,
-    risk: firstDefined(r, ['composite_safety_rating', 'wind_risk', 'safety_rating']) || (speed && speed > 40 ? 'HIGH' : 'SAFE')
+    risk: firstDefined(r, ['composite_safety_rating', 'wind_risk', 'safety_rating']) || (speed && speed > 40 ? 'HIGH' : 'SAFE'),
+    state: h.state,
+    sector: h.sector || h.state
   };
   return { agent: 'wind', status: 'success', data, cardUpdates: [card('wind', 'wind-speed', data, h.landing_center_name)], confidence: .97, timestamp: now() };
 }); }
@@ -81,7 +85,9 @@ export async function runWave(req: AgentRequest) { return safe('wave', async () 
     period: num(firstDefined(r, ['wave_period', 'wave_period_seconds'])) || 7.5,
     direction: num(firstDefined(r, ['wave_direction', 'wave_direction_deg'])) || 230,
     seaState: firstDefined(r, ['wmo_sea_state_desc', 'sea_state', 'wave_sea_state']) || 'Slight',
-    risk: firstDefined(r, ['composite_safety_rating', 'wave_risk', 'safety_rating']) || 'SAFE'
+    risk: firstDefined(r, ['composite_safety_rating', 'wave_risk', 'safety_rating']) || 'SAFE',
+    state: h.state,
+    sector: h.sector || h.state
   };
   return { agent: 'wave', status: 'success', data, cardUpdates: [card('wave', 'wave', data, h.landing_center_name)], confidence: .95, timestamp: now() };
 }); }
@@ -176,7 +182,19 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
   const targetState = (req.mapIntent?.scope === 'STATE' ? req.mapIntent.scopeName : null) ||
     (req.locationType === 'COASTAL_STATE' ? req.location?.name : null) ||
     extractCoastalStateName(req.query);
-  const isNational = !targetState && (req.mapIntent?.scope === 'NATIONAL' || /\b(all|india|national|entire|across)\b/i.test(req.query));
+  const hasSpecificLocation = Boolean(
+    req.location?.name ||
+    req.location?.harborId ||
+    targetState ||
+    req.mapIntent?.scope === 'NEAR_LOCATION' ||
+    req.mapIntent?.scope === 'CURRENT_HARBOR' ||
+    /\b(near|nearest|at|around|off|in)\b/i.test(req.query)
+  );
+  const isNational = !hasSpecificLocation && (
+    req.mapIntent?.scope === 'NATIONAL' ||
+    /\b(across\s+india|entire\s+country|nationwide|all\s+available\s+pfz|all\s+pfzs?\s+across\s+india)\b/i.test(req.query) ||
+    (/\bindia\b/i.test(req.query) && !/\b(near|at|around|off)\b/i.test(req.query))
+  );
   let rows: any[] = [];
   let h: any = null;
 
@@ -348,6 +366,7 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
     scope: targetState ? 'STATE' : (h ? 'NEAR_LOCATION' : (isNational ? 'NATIONAL' : 'NEAR_LOCATION')),
     scopeName: targetState || (isNational ? 'India' : h?.landing_center_name?.split(' (')[0]),
     state: targetState || h?.state || null,
+    sector: targetState || h?.sector || h?.state || null,
     recommendations: recommendations.slice(0, 10)
   };
 
@@ -461,6 +480,8 @@ export async function runZone(req: AgentRequest) { return safe('zone', async () 
     scope,
     scopeName,
     location: cardLocation,
+    state: targetState || h?.state || null,
+    sector: targetState || h?.sector || h?.state || null,
     zones: filtered.map((z: any) => ({
       zone_id: z.zone_id,
       zone_name: z.zone_name,

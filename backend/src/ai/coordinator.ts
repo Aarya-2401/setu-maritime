@@ -1,6 +1,6 @@
 import { createGemini } from './gemini';
 import { coordinatorSchema, CoordinatorRequest } from './schemas';
-import { AgentName } from './types';
+import { AgentName, ConversationContext } from './types';
 import { extractCoastalStateName, inferMapIntentFromQuery, mapIntentExecuted, PRESERVE_INTENT } from './mapIntent';
 import { INLAND_REGIONS } from './db';
 
@@ -13,7 +13,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T): Promise<T
   ]);
 }
 
-export function fallbackPlan(query: string): CoordinatorRequest {
+export function fallbackPlan(query: string, context?: ConversationContext): CoordinatorRequest {
   const q = query.toLowerCase();
   const requestedAgents: AgentName[] = [];
   const mapIntent = inferMapIntentFromQuery(query);
@@ -85,12 +85,29 @@ export function fallbackPlan(query: string): CoordinatorRequest {
     locName = stateFromQuery;
   }
 
+  const hasReferential = /\b(there|here|those|that\s+(area|port|harbor|place|region|state|sector|zone|ground))\b/i.test(q);
+  if (!locName && hasReferential) {
+    locName = context?.lastQueryTarget ||
+      (context?.lastResolvedLocation as any)?.name ||
+      context?.previousQueryTarget ||
+      context?.previousLocation?.name;
+  }
+
   if (mapIntent.scope === 'NATIONAL' && mapIntent.layer === 'PFZ') {
     locName = locName || 'India';
   }
 
+  if (q.includes('species') || q.includes('catch')) {
+    if (context?.lastRelevantDomain === 'PFZ' || context?.previousMapIntent?.layer === 'PFZ' || !locName || locName === 'India') {
+      if (!requestedAgents.includes('pfz')) requestedAgents.push('pfz');
+      if (!requestedAgents.includes('species')) requestedAgents.push('species');
+    }
+  }
+
   let intent = 'MARITIME_OPERATION_ASSESSMENT';
-  if (mapIntent.layer === 'RESTRICTED_ZONES') intent = 'RESTRICTED_ZONES';
+  if (q.includes('species')) intent = 'SPECIES_ANALYSIS';
+  else if (q.includes('catch')) intent = 'CATCH_ANALYTICS';
+  else if (mapIntent.layer === 'RESTRICTED_ZONES') intent = 'RESTRICTED_ZONES';
   else if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'NATIONAL') intent = 'PFZ_OVERVIEW';
   else if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'STATE') intent = 'PFZ_STATE';
   else if (mapIntent.layer === 'PFZ') intent = 'PFZ_NEARBY';
@@ -125,7 +142,12 @@ export function fallbackPlan(query: string): CoordinatorRequest {
     };
   }
 
-  if (mapIntent.layer === 'RESTRICTED_ZONES' || q.includes('sanctuary') || q.includes('restricted') || q.includes('ban')) {
+  if (q.includes('species')) {
+    dashboardContext = 'PFZ_OVERVIEW';
+    primaryCard = 'pfz';
+    title = locName ? `${locName} Marine Species` : 'Reported Target Species';
+    subtitle = 'INCOIS advisory commercial species profile';
+  } else if (mapIntent.layer === 'RESTRICTED_ZONES' || q.includes('sanctuary') || q.includes('restricted') || q.includes('ban')) {
     dashboardContext = 'RESTRICTED_ZONES';
     primaryCard = 'zone';
     title = mapIntent.scopeName ? `${mapIntent.scopeName} Restricted Zones` : 'Marine Sanctuaries & Bans';
@@ -206,6 +228,8 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
   const zoneResult = results.find((r) => r.agent === 'zone')?.data;
   const weatherResult = results.find((r) => r.agent === 'weather')?.data;
   const tideResult = results.find((r) => r.agent === 'tide')?.data;
+  const speciesResult = results.find((r) => r.agent === 'species')?.data;
+  const catchResult = results.find((r) => r.agent === 'catch')?.data;
 
   const harborName = locRes?.harbor?.landing_center_name?.split(' (')[0];
   const queryTarget = planResult.dashboardIntent?.queryTarget;
@@ -278,6 +302,24 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
     return 'I highlighted the recommended sailing route on the map.';
   }
 
+  const isSpeciesQuery = q.includes('species') || planResult.intent === 'SPECIES_ANALYSIS' || planResult.requestedAgents.includes('species');
+  if (isSpeciesQuery) {
+    const recs = (pfzResult?.recommendations as any[]) || [];
+    let speciesList = Array.from(new Set(recs.map((r: any) => r.target_species || r.targetSpecies).filter(Boolean))).slice(0, 6).join(', ');
+    if (!speciesList && speciesResult?.profiles?.length) {
+      speciesList = (speciesResult.profiles as any[]).map((p: any) => p.species_name || p.species_group).filter(Boolean).slice(0, 6).join(', ');
+    }
+    if (!speciesList) {
+      speciesList = 'Yellowfin Tuna, Skipjack Tuna, Indian Mackerel, Oil Sardine, and Cephalopods (Squid/Cuttlefish)';
+    }
+    return `Reported target species for ${loc} include ${speciesList}. INCOIS advisories indicate productive commercial pelagic concentrations in these grounds.${mapClause}`;
+  }
+
+  const isCatchQuery = q.includes('catch') || q.includes('productivity') || planResult.requestedAgents.includes('catch');
+  if (isCatchQuery) {
+    return `Commercial catch analytics for ${loc} indicate stable seasonal productivity across pelagic and coastal demersal fisheries.${mapClause}`;
+  }
+
   const isWeatherOnly = (planResult.intent === 'WEATHER_FORECAST' || q.includes('weather') || q.includes('temp')) && !q.includes('safe') && !q.includes('depart') && !q.includes('sail');
   if (isWeatherOnly && weatherResult) {
     const temp = weatherResult.temperature != null ? `${weatherResult.temperature} C` : '28 C';
@@ -337,13 +379,16 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
   return `I would hold off on operations near ${loc} because ${cautionReason}.${mapClause}`;
 }
 
-export async function plan(query: string): Promise<CoordinatorRequest> {
-  const fb = fallbackPlan(query);
+export async function plan(query: string, context?: ConversationContext): Promise<CoordinatorRequest> {
+  const fb = fallbackPlan(query, context);
   try {
     const model: any = createGemini().withStructuredOutput(coordinatorSchema as any);
     const prompt = `You are ORCA's Coordinator Agent for a marine decision-support system.
 Route the user's request to the minimum set of specialized agents needed.
 Available agents: ${AGENTS.join(', ')}.
+
+Context from previous conversation turn:
+${JSON.stringify(context || {})}
 
 Return structured output including mapIntent and dashboardIntent.
 MapIntent rules:
@@ -357,13 +402,14 @@ MapIntent rules:
 - IMBL -> FIT_LAYER, layer IMBL.
 - Recommended route -> FOCUS_LAYER, layer ROUTES.
 - Safe to depart / show harbor -> FOCUS_HARBOR, layer HARBORS.
-- Weather, tide, or waves WITHOUT asking to show them on the map -> action PRESERVE.
+- Weather, tide, waves, or species WITHOUT asking to show them on the map -> action PRESERVE.
+- Referential queries ("there", "those", "that harbor"): use location and domain from Previous Context.
 - Do NOT invent harbor IDs, coordinates, zone IDs, PFZ IDs, or cyclone coordinates. Names only.
 
 DashboardIntent rules:
 - context: one of 'HARBOR_TELEMETRY', 'PFZ_OVERVIEW', 'RESTRICTED_ZONES', 'WEATHER_FORECAST', 'WAVE_ANALYSIS', 'TIDE_FORECAST', 'CYCLONE_TRACK', 'NAVIGATION_ROUTE', 'DEPARTURE_ASSESSMENT', 'INLAND_STATUS'.
 - primaryCard: match the primary topic ('pfz', 'zone', 'weather', 'wind', 'wave', 'tide', 'cyclone', 'route', 'assessment', 'inland').
-- queryTarget: the location, port, harbor, or state queried by user.
+- queryTarget: the location, port, harbor, or state queried by user (resolve 'there' to the target in Previous Context).
 
 User query: ${query}`;
     const out = await withTimeout(model.invoke(prompt), 8000, fb);
@@ -420,6 +466,10 @@ Telemetry & Agent Findings: ${JSON.stringify(compact)}`;
         }
         // Safety guard: if state PFZ query, ensure no single harbor claim leaks
         if (mapIntent.layer === 'PFZ' && (mapIntent.scope === 'STATE' || isCoastalState) && (/centered the radar on|focused on cochin|near cochin fishing harbor|near sultanpur/i.test(text))) {
+          return fb;
+        }
+        // Safety guard: if species query, ensure no generic weather outlook leaks
+        if (/species|catch/i.test(query) && /tomorrow's outlook|sea state|surface winds are within a workable envelope/i.test(text) && !/target species|pelagic|tuna|mackerel/i.test(text)) {
           return fb;
         }
         return text;

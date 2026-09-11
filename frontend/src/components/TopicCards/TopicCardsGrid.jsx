@@ -42,6 +42,15 @@ export default function TopicCardsGrid({
   const weatherUpdate = cardUpdates?.find((c) => c.cardId === 'weather' || c.sourceAgent === 'weather')
   const windUpdate = cardUpdates?.find((c) => c.cardId === 'wind-speed' || c.sourceAgent === 'wind')
   const waveUpdate = cardUpdates?.find((c) => c.cardId === 'wave' || c.sourceAgent === 'wave')
+  const pfzUpdate = cardUpdates?.find((c) => c.cardId === 'pfz' || c.sourceAgent === 'pfz')
+  const zoneUpdate = cardUpdates?.find((c) => c.cardId === 'zone' || c.sourceAgent === 'zone')
+
+  const effectiveLocationState = weatherUpdate?.data?.state ||
+    pfzUpdate?.data?.state ||
+    zoneUpdate?.data?.state ||
+    (advisories && advisories.length > 0 ? advisories[0]?.state : null) ||
+    (restrictedZones && restrictedZones.length > 0 ? restrictedZones[0]?.state : null) ||
+    null
 
   const effectiveSafetyData = useMemo(() => {
     let base = { ...safetyData }
@@ -51,20 +60,30 @@ export default function TopicCardsGrid({
       base.surface_pressure_hpa = weatherUpdate.data.pressure ?? base.surface_pressure_hpa
       base.visibility_km = weatherUpdate.data.visibility ?? base.visibility_km
       base.relative_humidity = weatherUpdate.data.humidity ?? base.relative_humidity
+      if (weatherUpdate.data.state) base.state = weatherUpdate.data.state
+      if (weatherUpdate.data.sector) base.sector = weatherUpdate.data.sector
       if (weatherUpdate.location) base.landing_center_name = weatherUpdate.location
     }
     if (windUpdate?.data) {
       base.wind_speed_kmph = windUpdate.data.speed ?? base.wind_speed_kmph
       base.wind_gust_mps = windUpdate.data.gust != null ? windUpdate.data.gust / 3.6 : base.wind_gust_mps
       base.wind_direction_deg = windUpdate.data.direction ?? base.wind_direction_deg
+      if (windUpdate.data.state && !base.state) base.state = windUpdate.data.state
+      if (windUpdate.data.sector && !base.sector) base.sector = windUpdate.data.sector
     }
     if (waveUpdate?.data) {
       base.significant_wave_height_m = waveUpdate.data.height ?? base.significant_wave_height_m
       base.swell_wave_height_m = waveUpdate.data.swell ?? base.swell_wave_height_m
       base.wmo_sea_state_desc = waveUpdate.data.seaState ?? base.wmo_sea_state_desc
+      if (waveUpdate.data.state && !base.state) base.state = waveUpdate.data.state
+      if (waveUpdate.data.sector && !base.sector) base.sector = waveUpdate.data.sector
+    }
+    if (effectiveLocationState && !base.state) {
+      base.state = effectiveLocationState
+      base.sector = effectiveLocationState
     }
     return base
-  }, [safetyData, weatherUpdate, windUpdate, waveUpdate])
+  }, [safetyData, weatherUpdate, windUpdate, waveUpdate, effectiveLocationState])
 
   // Contextual Card Routing based on active AI user query context
   if (dashboardContext === 'RESTRICTED_ZONES') {
@@ -88,6 +107,7 @@ export default function TopicCardsGrid({
           safetyData={effectiveSafetyData}
           loading={loading}
           customLocationName={effectiveLocationName}
+          customLocationState={effectiveLocationState}
           isUserLocation={isUserLocationActive}
           userLocation={userLocation}
         />
@@ -116,6 +136,7 @@ export default function TopicCardsGrid({
           safetyData={effectiveSafetyData}
           loading={loading}
           customLocationName={effectiveLocationName}
+          customLocationState={effectiveLocationState}
           isUserLocation={isUserLocationActive}
           userLocation={userLocation}
         />
@@ -149,6 +170,7 @@ export default function TopicCardsGrid({
           safetyData={effectiveSafetyData}
           loading={loading}
           customLocationName={effectiveLocationName}
+          customLocationState={effectiveLocationState}
           isUserLocation={isUserLocationActive}
           userLocation={userLocation}
         />
@@ -179,6 +201,7 @@ export default function TopicCardsGrid({
           safetyData={effectiveSafetyData}
           loading={loading}
           customLocationName={effectiveLocationName}
+          customLocationState={effectiveLocationState}
           isUserLocation={isUserLocationActive}
           userLocation={userLocation}
         />
@@ -194,6 +217,7 @@ export default function TopicCardsGrid({
         safetyData={effectiveSafetyData}
         loading={loading}
         customLocationName={effectiveLocationName}
+        customLocationState={effectiveLocationState}
         isUserLocation={isUserLocationActive}
         userLocation={userLocation}
       />

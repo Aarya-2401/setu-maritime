@@ -837,9 +837,11 @@ export default function MapSection({
   const coords = [activeLat, activeLon]
 
   const isInland = isUserLocationActive && !hasLiveMarineData
-  const locationName = isUserLocationActive && userLocation?.label
-    ? userLocation.label
-    : (harbor?.landing_center_name || 'Harbor unavailable')
+  const locationName = (mapFocusTarget?.label && mapFocusTarget.label !== 'Default' && mapFocusTarget.label !== 'User Detected Position')
+    ? mapFocusTarget.label
+    : (isUserLocationActive && userLocation?.label
+      ? userLocation.label
+      : (harbor?.landing_center_name || 'Harbor unavailable'))
 
   // Ensure Kerala fallback route and advisory are present when Cochin harbor is active
   const effectiveRoutes = useMemo(() => {

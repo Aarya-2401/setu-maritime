@@ -79,7 +79,14 @@ export default function ChatPanel({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages, typing])
 
-  const previousMapIntentRef = useRef(null)
+  const conversationContextRef = useRef({
+    previousMapIntent: null,
+    lastQueryTarget: null,
+    lastResolvedLocation: null,
+    lastDashboardContext: null,
+    lastRelevantDomain: null,
+    lastSpecies: null
+  })
 
   async function sendMessage(text) {
     const trimmed = (text || input).trim()
@@ -97,7 +104,12 @@ export default function ChatPanel({
 
     const context = {
       selectedHarborId: harbor?.harbor_id,
-      previousMapIntent: previousMapIntentRef.current,
+      previousMapIntent: conversationContextRef.current.previousMapIntent,
+      lastQueryTarget: conversationContextRef.current.lastQueryTarget,
+      lastResolvedLocation: conversationContextRef.current.lastResolvedLocation,
+      lastDashboardContext: conversationContextRef.current.lastDashboardContext,
+      lastRelevantDomain: conversationContextRef.current.lastRelevantDomain,
+      lastSpecies: conversationContextRef.current.lastSpecies,
       previousLocation: harbor ? {
         name: harbor.landing_center_name,
         latitude: Number(harbor.latitude),
@@ -118,7 +130,14 @@ export default function ChatPanel({
       const aiResponse = await askOrcaAI(trimmed, context)
       if (aiResponse && aiResponse.success && aiResponse.answer) {
         const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate || { action: 'PRESERVE' }
-        previousMapIntentRef.current = effectiveIntent
+        conversationContextRef.current = {
+          previousMapIntent: effectiveIntent,
+          lastQueryTarget: aiResponse.queryTarget || aiResponse.dashboardIntent?.queryTarget || conversationContextRef.current.lastQueryTarget,
+          lastResolvedLocation: aiResponse.location || conversationContextRef.current.lastResolvedLocation,
+          lastDashboardContext: aiResponse.dashboardIntent?.context || conversationContextRef.current.lastDashboardContext,
+          lastRelevantDomain: effectiveIntent.layer || aiResponse.dashboardIntent?.context || conversationContextRef.current.lastRelevantDomain,
+          lastSpecies: aiResponse.agentResults?.find((r) => r.agent === 'species')?.data?.species || conversationContextRef.current.lastSpecies
+        }
         executeMapIntent(effectiveIntent, aiResponse, {
           onSelectHarbor,
           onMapFocus,

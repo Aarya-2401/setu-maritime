@@ -24,7 +24,7 @@ type State = typeof OrcaState.State;
 
 export async function runOrca(query: string, context?: ConversationContext) {
   const graph = new StateGraph(OrcaState)
-    .addNode('coordinate', async (s: State) => ({ plan: await plan(s.query) }))
+    .addNode('coordinate', async (s: State) => ({ plan: await plan(s.query, s.context) }))
     .addNode('execute', async (s: State) => {
       const p = s.plan;
       const locRes = await resolveLocation(p.location);
@@ -179,6 +179,8 @@ export async function runOrca(query: string, context?: ConversationContext) {
       }
 
       const resolvedTarget = locRes.stateName || (h ? h.landing_center_name : (p.location?.name || normalizedIntent.scopeName));
+      const resolvedState = locRes.stateName || h?.state || null;
+      const resolvedSector = locRes.stateName || h?.sector || h?.state || null;
       let dashboardIntent = p.dashboardIntent;
       if (!dashboardIntent) {
         dashboardIntent = {
@@ -193,6 +195,8 @@ export async function runOrca(query: string, context?: ConversationContext) {
           scope: normalizedIntent.scope,
           scopeName: normalizedIntent.scopeName || resolvedTarget,
           queryTarget: resolvedTarget,
+          state: resolvedState,
+          sector: resolvedSector,
           title: normalizedIntent.scopeName || resolvedTarget || 'Maritime Telemetry'
         };
       } else {
@@ -200,7 +204,9 @@ export async function runOrca(query: string, context?: ConversationContext) {
           ...dashboardIntent,
           queryTarget: dashboardIntent.queryTarget || resolvedTarget,
           scope: dashboardIntent.scope || normalizedIntent.scope,
-          scopeName: dashboardIntent.scopeName || normalizedIntent.scopeName || resolvedTarget
+          scopeName: dashboardIntent.scopeName || normalizedIntent.scopeName || resolvedTarget,
+          state: dashboardIntent.state || resolvedState,
+          sector: dashboardIntent.sector || resolvedSector
         };
       }
 
