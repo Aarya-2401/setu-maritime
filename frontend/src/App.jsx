@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect, lazy, Suspense } from 'react'
+import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from 'react'
 import TopBar from './components/TopBar/TopBar'
 import MapSection from './components/MapSection/MapSection'
 import TopicCardsGrid from './components/TopicCards/TopicCardsGrid'
 import ChatPanel from './components/ChatPanel/ChatPanel'
 import { calculateGlobalAssessment, evaluateUserLocationAssessment } from './data/decisionLogic'
 import { fetchLiveWeather, getCityStateAbbr } from './data/liveWeather'
+import { executeMapIntent } from './utils/mapIntentExecutor'
 import MobileLayout from './components/Mobile/MobileLayout'
 import { useIsMobile } from './components/Mobile/useIsMobile'
 
@@ -48,6 +49,12 @@ export default function App() {
   const [cardUpdates, setCardUpdates] = useState([])
 
   const isMobile = useIsMobile(768)
+
+  const [currentTime, setCurrentTime] = useState(() => new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
 
   // Single flat messages state for active consultation session
   const [messages, setMessages] = useState([
@@ -279,6 +286,60 @@ export default function App() {
     })
   }
 
+  // Atomic state updater function: applies AI response as one coherent UI context
+  const applyAIResponse = useCallback((aiResponse) => {
+    if (!aiResponse || !aiResponse.success) return
+
+    const effectiveIntent = aiResponse.mapIntent || aiResponse.mapUpdate || { action: 'PRESERVE' }
+
+    // 1. Atomically resolve and update queryTarget and dashboardContext
+    const qTarget = aiResponse.queryTarget ||
+      aiResponse.dashboardIntent?.queryTarget ||
+      effectiveIntent.scopeName ||
+      effectiveIntent.location?.name ||
+      null
+
+    if (qTarget) {
+      setQueryTarget(qTarget)
+    }
+
+    if (aiResponse.dashboardIntent) {
+      setDashboardIntent(aiResponse.dashboardIntent)
+      if (aiResponse.dashboardIntent.context) {
+        setDashboardContext(aiResponse.dashboardIntent.context)
+      }
+    } else if (effectiveIntent.layer === 'RESTRICTED_ZONES') {
+      setDashboardContext('RESTRICTED_ZONES')
+      if (qTarget) setDashboardIntent({ context: 'RESTRICTED_ZONES', queryTarget: qTarget })
+    } else if (effectiveIntent.layer === 'PFZ') {
+      setDashboardContext('PFZ_OVERVIEW')
+      if (qTarget) setDashboardIntent({ context: 'PFZ_OVERVIEW', queryTarget: qTarget })
+    } else if (effectiveIntent.layer === 'CYCLONES') {
+      setDashboardContext('CYCLONE_TRACK')
+    } else if (effectiveIntent.layer === 'ROUTES') {
+      setDashboardContext('NAVIGATION_ROUTE')
+    }
+
+    // 2. Atomically update cardUpdates
+    if (Array.isArray(aiResponse.cardUpdates)) {
+      setCardUpdates(aiResponse.cardUpdates)
+    }
+
+    // 3. Atomically execute MapIntent without touching selectedHarbor unless explicitly commanded
+    executeMapIntent(effectiveIntent, aiResponse, {
+      onSelectHarbor: (id) => setSelectedHarborId(id),
+      onMapFocus: (focus) => setMapFocusTarget(focus),
+      onSetInlandLocation: handleSetInlandLocation,
+      onSelectUserLocation: handleSelectUserLocation,
+      onDisengageInland: () => setIsUserLocationActive(false),
+      onUpdateDynamicAdvisories: (adv) => setDynamicAdvisories(adv),
+      onUpdateDynamicZones: (zones) => setDynamicZones(zones),
+      onUpdateDashboardIntent: handleUpdateDashboardIntent,
+      onUpdateCardUpdates: (cards) => setCardUpdates(cards),
+      onUpdateQueryTarget: (target) => setQueryTarget(target)
+    })
+  }, [handleSetInlandLocation, handleSelectUserLocation, handleUpdateDashboardIntent])
+
   // Query live MySQL Views for the selected harbor - parallelized from t=0
   const { data: safetyData, history: safetyHistory, loading: safetyLoading, error: safetyError } =
     useSafetyNowcast(selectedHarborId)
@@ -346,6 +407,69 @@ export default function App() {
     }
     return safetyData
   }, [isUserLocationActive, liveWeatherData, safetyData, userLocation])
+
+  // Global telemetry separate from transient dashboard query contexts
+  const globalTelemetry = useMemo(() => {
+    const isUserLoc = isUserLocationActive && userLocation?.label
+    const locName = isUserLoc ? userLocation.label : (selectedHarbor?.landing_center_name || 'Operational Base')
+    const locState = isUserLoc ? (userLocation.state || 'India') : (selectedHarbor?.state || '')
+
+    const airTemp = effectiveSafetyData?.air_temp_celsius != null
+      ? Math.round(effectiveSafetyData.air_temp_celsius)
+      : (liveWeatherData?.temp != null ? Math.round(liveWeatherData.temp) : null)
+
+    const windSpeed = effectiveSafetyData?.wind_speed_kmph != null
+      ? Math.round(effectiveSafetyData.wind_speed_kmph)
+      : (liveWeatherData?.windSpeed != null ? Math.round(liveWeatherData.windSpeed) : null)
+
+    const waveHeight = effectiveSafetyData?.significant_wave_height_m != null
+      ? Number(effectiveSafetyData.significant_wave_height_m).toFixed(1)
+      : null
+
+    const currentTide = tides && tides.length > 0
+      ? Number(tides[0].tide_height_meters).toFixed(1)
+      : null
+
+    return {
+      weather: {
+        value: airTemp != null ? `${airTemp}°C` : '--',
+        rawValue: airTemp,
+        unit: '°C',
+        location: locName,
+        state: locState,
+        timestamp: effectiveSafetyData?.datetime_utc || new Date().toISOString(),
+        source: isUserLoc ? 'Open-Meteo Atmospheric' : 'INCOIS / C-DAC Marine AWS'
+      },
+      wind: {
+        value: windSpeed != null ? `${windSpeed} km/h` : '--',
+        rawValue: windSpeed,
+        unit: 'km/h',
+        location: locName,
+        state: locState,
+        timestamp: effectiveSafetyData?.datetime_utc || new Date().toISOString(),
+        source: isUserLoc ? 'Open-Meteo Wind' : 'INCOIS Nowcast Surface Wind'
+      },
+      wave: {
+        value: waveHeight != null ? `${waveHeight} m` : (hasLiveMarineData ? '--' : 'N/A'),
+        rawValue: waveHeight,
+        unit: 'm',
+        location: locName,
+        state: locState,
+        timestamp: effectiveSafetyData?.datetime_utc || new Date().toISOString(),
+        source: 'INCOIS WaveWatch III'
+      },
+      tide: {
+        value: currentTide != null ? `${currentTide} m` : (hasLiveMarineData ? '--' : 'N/A'),
+        rawValue: currentTide,
+        unit: 'm',
+        location: locName,
+        state: locState,
+        timestamp: tides?.[0]?.tide_time || new Date().toISOString(),
+        source: 'Survey of India / INCOIS Tide Prediction'
+      },
+      time: currentTime
+    }
+  }, [isUserLocationActive, userLocation, selectedHarbor, effectiveSafetyData, liveWeatherData, tides, hasLiveMarineData, currentTime])
 
   const effectiveAdvisories = dynamicAdvisories || advisories
   const effectiveZones = (dynamicZones && dynamicZones.length > 0)
@@ -437,6 +561,8 @@ export default function App() {
           onUpdateDashboardIntent={handleUpdateDashboardIntent}
           onUpdateCardUpdates={setCardUpdates}
           onUpdateQueryTarget={setQueryTarget}
+          globalTelemetry={globalTelemetry}
+          onApplyAIResponse={applyAIResponse}
         />
 
         {assessmentModalOpen && (
@@ -482,6 +608,8 @@ export default function App() {
           onOpenAssessment={() => setAssessmentModalOpen(true)}
           loading={loading}
           hasApiError={hasApiError}
+          globalTelemetry={globalTelemetry}
+          tides={tides}
         />
 
         <div className="app__content">
@@ -554,6 +682,7 @@ export default function App() {
         onUpdateDashboardIntent={handleUpdateDashboardIntent}
         onUpdateCardUpdates={setCardUpdates}
         onUpdateQueryTarget={setQueryTarget}
+        onApplyAIResponse={applyAIResponse}
       />
 
       {/* Unified Departure & Route Assessment Breakdown Modal */}

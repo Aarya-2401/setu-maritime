@@ -42,6 +42,16 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
   const asksShow = /\b(show|display|highlight|map|zoom|fit|plot|draw)\b/.test(q);
   const stateName = extractCoastalStateName(query);
 
+  const locMatch = q.match(/\b(?:near|around|at|for|from|off|in)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
+  let extractedLocName: string | undefined;
+  if (locMatch && locMatch[1]) {
+    const candidate = locMatch[1].trim();
+    const skipWords = new Set(['fishing', 'sailing', 'departure', 'port', 'harbor', 'harbour', 'sea', 'ocean', 'today', 'tomorrow', 'now', 'morning', 'the', 'a', 'an', 'india', 'map', 'active', 'those', 'them', 'there']);
+    if (!skipWords.has(candidate.toLowerCase())) {
+      extractedLocName = candidate.split(/\s+/).map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    }
+  }
+
   if (/\beez\b/.test(q) || /exclusive economic/.test(q)) {
     return {
       action: 'FIT_LAYER',
@@ -63,12 +73,13 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
     };
   }
 
-  if (/restricted|sanctuary|marine protected|fishing ban/.test(q)) {
+  if (/restricted|sanctuary|marine protected|fishing ban|monsoon ban|closed area/.test(q)) {
+    const targetScope = stateName || extractedLocName;
     return {
       action: 'FIT_LAYER',
       layer: 'RESTRICTED_ZONES',
-      scope: stateName ? 'STATE' : 'REGION',
-      scopeName: stateName,
+      scope: stateName ? 'STATE' : (extractedLocName ? 'NEAR_LOCATION' : 'REGION'),
+      scopeName: targetScope,
       highlight: 'ALL',
       fitBounds: true
     };
@@ -89,11 +100,12 @@ export function inferMapIntentFromQuery(query: string): MapIntent {
         fitBounds: true
       };
     }
+    const targetScope = stateName || extractedLocName;
     return {
       action: 'FIT_LAYER',
       layer: 'PFZ',
       scope: stateName ? 'STATE' : 'NEAR_LOCATION',
-      scopeName: stateName,
+      scopeName: targetScope,
       highlight: stateName ? 'ALL' : 'MATCHED',
       fitBounds: true
     };
@@ -194,10 +206,13 @@ export function inheritMapIntent(
   const prev = context?.previousMapIntent;
   if (!prev || prev.action === 'PRESERVE') return planIntent;
 
-  if (isReferentialMapQuery(query)) {
+  const isRefQuery = isReferentialMapQuery(query) || (/\b(show|display|fit|zoom)\b/i.test(query) && /\b(those|them|that|these)\b/i.test(query));
+  if (isRefQuery) {
+    const layer = (/\b(restrict|sanctuary)\b/i.test(query) ? 'RESTRICTED_ZONES' : (/\bpfz/i.test(query) ? 'PFZ' : prev.layer));
     return {
       ...prev,
-      action: prev.layer ? 'FIT_LAYER' : prev.action,
+      action: layer ? 'FIT_LAYER' : prev.action,
+      layer: layer || prev.layer,
       fitBounds: true,
       highlight: prev.highlight && prev.highlight !== 'NONE' ? prev.highlight : 'ALL'
     };
@@ -205,6 +220,14 @@ export function inheritMapIntent(
 
   // If current intent specifies an explicit layer different from prev, never contaminate it
   if (planIntent?.layer && prev?.layer && planIntent.layer !== prev.layer) {
+    return planIntent;
+  }
+
+  // If query explicitly names a location or state, never inherit previous scopeName
+  const locMatch = query.match(/\b(?:near|around|at|for|from|off|in)\s+([a-z]+(?:\s+[a-z]+)?)\b/i);
+  const skipWords = new Set(['fishing', 'sailing', 'departure', 'port', 'harbor', 'harbour', 'sea', 'ocean', 'today', 'tomorrow', 'now', 'morning', 'the', 'a', 'an', 'india', 'map', 'active', 'those', 'them', 'there', 'area', 'areas']);
+  const hasExplicitLocation = Boolean(extractCoastalStateName(query)) || Boolean(locMatch && locMatch[1] && !skipWords.has(locMatch[1].trim().toLowerCase()));
+  if (hasExplicitLocation) {
     return planIntent;
   }
 
@@ -340,12 +363,12 @@ export function normalizeMapIntent(
       console.log('[ORCA] MapIntent: no matching restricted zones; PRESERVE');
       return { ...PRESERVE_INTENT };
     }
-    const scopeName = intent.scopeName || locRes.stateName || locRes.locationName;
+    const targetScopeName = locRes.stateName || (locRes.harbor ? locRes.harbor.landing_center_name?.split(' (')[0] : (locRes.locationName || intent.scopeName));
     return {
       action: 'FIT_LAYER',
       layer: 'RESTRICTED_ZONES',
       scope: intent.scope || (locRes.status === 'COASTAL_STATE' ? 'STATE' : 'REGION'),
-      scopeName,
+      scopeName: targetScopeName,
       targetIds: ids,
       highlight: 'ALL',
       fitBounds: true,
@@ -361,12 +384,12 @@ export function normalizeMapIntent(
     }
     const national = intent.scope === 'NATIONAL';
     const isState = !national && (intent.scope === 'STATE' || locRes.status === 'COASTAL_STATE') && intent.scope !== 'NEAR_LOCATION';
-    const scopeName = intent.scopeName || (national ? 'India' : (locRes.stateName || locRes.locationName));
+    const targetScopeName = national ? 'India' : (locRes.stateName || (locRes.harbor ? locRes.harbor.landing_center_name?.split(' (')[0] : (locRes.locationName || intent.scopeName)));
     return {
       action: 'FIT_LAYER',
       layer: 'PFZ',
       scope: national ? 'NATIONAL' : (isState ? 'STATE' : (intent.scope || 'NEAR_LOCATION')),
-      scopeName,
+      scopeName: targetScopeName,
       targetIds: ids,
       highlight: (national || isState) ? 'ALL' : 'MATCHED',
       fitBounds: true,

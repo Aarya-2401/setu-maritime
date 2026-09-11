@@ -110,6 +110,20 @@
   flex-shrink: 0;
 }
 
+.topbar__base-tag {
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(53, 201, 232, 0.15);
+  border: 1px solid rgba(53, 201, 232, 0.35);
+  color: var(--accent-cyan);
+  text-transform: uppercase;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
 .topbar__station-tag {
   font-family: var(--font-display);
   font-size: 12px;
@@ -182,30 +196,40 @@
 
 .telemetry-pill {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
   white-space: nowrap;
+}
+
+.telemetry-pill__main {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .telemetry-val {
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
+  line-height: 1.15;
 }
 
 .telemetry-lbl {
-  font-size: 9px;
+  font-size: 8px;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 600;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .telemetry-sep {
   width: 1px;
-  height: 14px;
+  height: 18px;
   background: rgba(255, 255, 255, 0.12);
 }
 

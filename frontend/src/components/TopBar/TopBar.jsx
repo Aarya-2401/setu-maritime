@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { IconLocation, IconCloud, IconWind, IconWave, IconClock, IconRadar, IconChevronDown } from '../Icons'
+import { IconLocation, IconCloud, IconWind, IconWave, IconTide, IconChevronDown } from '../Icons'
 import {
   getFormattedHarborTag,
   getUNLocode,
@@ -22,7 +22,9 @@ export default function TopBar({
   isUserLocationActive,
   onSelectUserLocation,
   userLocationTag,
-  hasLiveMarineData = true
+  hasLiveMarineData = true,
+  globalTelemetry,
+  tides
 }) {
   const [currentTime, setCurrentTime] = useState(() => new Date())
 
@@ -33,7 +35,6 @@ export default function TopBar({
   }, [])
 
   const timeStr = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-  const dateStr = currentTime.toLocaleDateString([], { month: 'short', day: 'numeric' })
 
   const fmt = (val, unit, digits = 1) =>
     loading || val === null || val === undefined ? '--' : `${Number(val).toFixed(digits)}${unit}`
@@ -50,9 +51,14 @@ export default function TopBar({
     return groups
   }, [harbors])
 
+  const weatherDisplay = globalTelemetry?.weather?.value || fmt(safetyData?.air_temp_celsius, '°C', 0)
+  const windDisplay = globalTelemetry?.wind?.value || fmt(safetyData?.wind_speed_kmph, ' km/h', 0)
+  const waveDisplay = globalTelemetry?.wave?.value || fmt(safetyData?.significant_wave_height_m, ' m')
+  const tideDisplay = globalTelemetry?.tide?.value || (tides && tides.length > 0 ? `${Number(tides[0].tide_height_meters).toFixed(1)} m` : '--')
+
   return (
     <header className="topbar">
-      {/* Column 1 (Left 50%): Identity, Harbor Selector & Live Marine Telemetry */}
+      {/* Column 1 (Left 50%): Identity, Operational Base Harbor & 4 Stable Telemetry Pills */}
       <div className="topbar__col topbar__col--left">
 
         <div className="topbar__brand" title="SETU · Epsilon Six Maritime Intelligence">
@@ -62,16 +68,18 @@ export default function TopBar({
           <span className="topbar__brand-title">SETU</span>
         </div>
 
+        {/* Operational Base Harbor Selector */}
         <div
           className="topbar__search"
           title={
             isUserLocationActive && userLocation
               ? `${userLocation.label} · User Detected Position (${userLocationTag})`
               : harbor
-              ? `${harbor.landing_center_name || 'Harbor'} (${harbor.state || ''}) · UN/LOCODE: ${getUNLocode(harbor)} · ${getHarborAuthority(harbor)}`
+              ? `${harbor.landing_center_name || 'Harbor'} (${harbor.state || ''}) · Operational Base · UN/LOCODE: ${getUNLocode(harbor)} · ${getHarborAuthority(harbor)}`
               : 'Location selection'
           }
         >
+          <span className="topbar__base-tag">BASE</span>
           <span className="topbar__pin">
             <IconLocation size={12} color={isUserLocationActive ? '#10b981' : '#35c9e8'} />
           </span>
@@ -103,7 +111,7 @@ export default function TopBar({
                 onSelectHarbor(Number(e.target.value))
               }
             }}
-            aria-label="Select departure harbor station or user location"
+            aria-label="Select operational base harbor station or user location"
           >
             {userLocation?.city && (
               <optgroup label="USER DETECTED LOCATION">
@@ -130,36 +138,76 @@ export default function TopBar({
           </select>
         </div>
 
-        {/* Telemetry Strip docked cleanly in Left Column */}
+        {/* Stable Telemetry Strip docked cleanly in Left Column: exactly 4 stable pills */}
         <div
           className="topbar__telemetry"
-          title={isUserLocationActive ? 'User Location Live Atmospheric Telemetry' : 'Harbor Oceanographic & Atmospheric Telemetry Station (INCOIS / C-DAC Node)'}
+          title={`Operational Marine Telemetry Node · ${globalTelemetry?.weather?.location || harbor?.landing_center_name || 'Station'}`}
         >
-          <div className="telemetry-pill">
-            <IconCloud size={12} color="#35c9e8" />
-            <span className="telemetry-val">{fmt(safetyData?.air_temp_celsius, '°C', 0)}</span>
-            <span className="telemetry-lbl">Air</span>
+          {/* Pill 1: WEATHER + TIME */}
+          <div
+            className="telemetry-pill"
+            title={`${globalTelemetry?.weather?.location || ''} (${globalTelemetry?.weather?.state || ''}) · ${globalTelemetry?.weather?.source || ''}`}
+          >
+            <div className="telemetry-pill__main">
+              <IconCloud size={11} color="#35c9e8" />
+              <span className="telemetry-val">
+                {weatherDisplay} · {timeStr}
+              </span>
+            </div>
+            <span className="telemetry-lbl">WEATHER</span>
           </div>
+
           <div className="telemetry-sep" />
-          <div className="telemetry-pill">
-            <IconWind size={12} color="#35c9e8" />
-            <span className="telemetry-val">{fmt(safetyData?.wind_speed_kmph, ' km/h', 0)}</span>
-            <span className="telemetry-lbl">Wind</span>
+
+          {/* Pill 2: WIND */}
+          <div
+            className="telemetry-pill"
+            title={`${globalTelemetry?.wind?.location || ''} (${globalTelemetry?.wind?.state || ''}) · ${globalTelemetry?.wind?.source || ''}`}
+          >
+            <div className="telemetry-pill__main">
+              <IconWind size={11} color="#35c9e8" />
+              <span className="telemetry-val">
+                {windDisplay}
+              </span>
+            </div>
+            <span className="telemetry-lbl">WIND</span>
           </div>
-          {hasLiveMarineData && (
-            <>
-              <div className="telemetry-sep" />
-              <div className="telemetry-pill">
-                <IconWave size={12} color="#35c9e8" />
-                <span className="telemetry-val">{fmt(safetyData?.significant_wave_height_m, 'm')}</span>
-                <span className="telemetry-lbl">Wave</span>
-              </div>
-            </>
-          )}
+
+          <div className="telemetry-sep" />
+
+          {/* Pill 3: WAVE */}
+          <div
+            className="telemetry-pill"
+            title={`${globalTelemetry?.wave?.location || ''} (${globalTelemetry?.wave?.state || ''}) · ${globalTelemetry?.wave?.source || ''}`}
+          >
+            <div className="telemetry-pill__main">
+              <IconWave size={11} color="#35c9e8" />
+              <span className="telemetry-val">
+                {waveDisplay}
+              </span>
+            </div>
+            <span className="telemetry-lbl">WAVE</span>
+          </div>
+
+          <div className="telemetry-sep" />
+
+          {/* Pill 4: TIDE */}
+          <div
+            className="telemetry-pill"
+            title={`${globalTelemetry?.tide?.location || ''} (${globalTelemetry?.tide?.state || ''}) · ${globalTelemetry?.tide?.source || ''}`}
+          >
+            <div className="telemetry-pill__main">
+              <IconTide size={11} color="#35c9e8" />
+              <span className="telemetry-val">
+                {tideDisplay}
+              </span>
+            </div>
+            <span className="telemetry-lbl">TIDE</span>
+          </div>
         </div>
       </div>
 
-      {/* Column 2 (Right 50%): Operational Decision Clearance & Data Timestamp */}
+      {/* Column 2 (Right 50%): Operational Decision Clearance (no duplicate time pill) */}
       <div className="topbar__col topbar__col--right">
         <button
           className={`topbar__decision-btn topbar__decision-btn--${assessment?.tone || 'good'}`}
@@ -172,15 +220,6 @@ export default function TopBar({
           </span>
           <span className="topbar__why-tag">Why?</span>
         </button>
-
-        <div
-          className="topbar__time"
-          title={`Live system clock · INCOIS Data sync: ${assessment?.dataFreshness || 'Live'}`}
-        >
-          <IconClock size={12} color="#94a3b8" />
-          <span className="topbar__time-val">{timeStr}</span>
-          <span className="topbar__time-date">{dateStr}</span>
-        </div>
       </div>
     </header>
   )

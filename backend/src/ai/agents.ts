@@ -182,19 +182,21 @@ export async function runPfz(req: AgentRequest) { return safe('pfz', async () =>
   const targetState = (req.mapIntent?.scope === 'STATE' ? req.mapIntent.scopeName : null) ||
     (req.locationType === 'COASTAL_STATE' ? req.location?.name : null) ||
     extractCoastalStateName(req.query);
-  const hasSpecificLocation = Boolean(
-    req.location?.name ||
+  const locNameLower = req.location?.name?.toLowerCase().trim();
+  const isExplicitIndia = locNameLower === 'india' || locNameLower === 'national' || req.mapIntent?.scope === 'NATIONAL';
+  const hasSpecificLocation = !isExplicitIndia && Boolean(
+    (req.location?.name && locNameLower !== 'india' && locNameLower !== 'national') ||
     req.location?.harborId ||
     targetState ||
     req.mapIntent?.scope === 'NEAR_LOCATION' ||
     req.mapIntent?.scope === 'CURRENT_HARBOR' ||
-    /\b(near|nearest|at|around|off|in)\b/i.test(req.query)
+    /\b(near|nearest|at|around|off)\b/i.test(req.query)
   );
-  const isNational = !hasSpecificLocation && (
+  const isNational = isExplicitIndia || (!hasSpecificLocation && (
     req.mapIntent?.scope === 'NATIONAL' ||
     /\b(across\s+india|entire\s+country|nationwide|all\s+available\s+pfz|all\s+pfzs?\s+across\s+india)\b/i.test(req.query) ||
     (/\bindia\b/i.test(req.query) && !/\b(near|at|around|off)\b/i.test(req.query))
-  );
+  ));
   let rows: any[] = [];
   let h: any = null;
 

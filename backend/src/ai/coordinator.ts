@@ -18,27 +18,41 @@ export function fallbackPlan(query: string, context?: ConversationContext): Coor
   const requestedAgents: AgentName[] = [];
   const mapIntent = inferMapIntentFromQuery(query);
 
-  if (mapIntent.layer === 'RESTRICTED_ZONES' || mapIntent.layer === 'EEZ' || mapIntent.layer === 'IMBL') {
-    requestedAgents.push('zone');
-  }
-  if (mapIntent.layer === 'PFZ') requestedAgents.push('pfz');
-  if (mapIntent.layer === 'CYCLONES') requestedAgents.push('cyclone');
-  if (mapIntent.layer === 'ROUTES') requestedAgents.push('pfz');
+  const isZoneQuery = /\b(restrict|restricted|restriction|restrictions|sanctuary|sanctuaries|mpa|marine\s+protected|fishing\s+ban|monsoon\s+ban|closed\s+area|no-take|eez|imbl)\b/i.test(q) || mapIntent.layer === 'RESTRICTED_ZONES' || mapIntent.layer === 'EEZ' || mapIntent.layer === 'IMBL';
+  const isPfzQuery = /\b(pfzs?|potential\s+fishing|fishing\s+grounds?)\b/i.test(q) || mapIntent.layer === 'PFZ';
+  const isCycloneQuery = /\b(cyclone|storm|depression)\b/i.test(q) || mapIntent.layer === 'CYCLONES';
+  const isRouteQuery = /\b(route|sailing\s+corridor|corridors)\b/i.test(q) || mapIntent.layer === 'ROUTES';
+  const isSpeciesQuery = /\b(species|tuna|mackerel|sardine|pomfret|croaker|squid|prawn|pelagic)\b/i.test(q);
+  const isCatchQuery = /\b(catch|productivity|trend|landings)\b/i.test(q);
+  const isDepartureQuery = /\b(depart|departure|safe\s+to\s+depart|safe\s+to\s+sail|sail|boat)\b/i.test(q);
 
-  if (q.includes('fish') || q.includes('safe') || q.includes('sail') || q.includes('depart') || q.includes('boat')) {
+  if (isZoneQuery) requestedAgents.push('zone');
+  if (isPfzQuery) requestedAgents.push('pfz');
+  if (isCycloneQuery) requestedAgents.push('cyclone');
+  if (isRouteQuery) requestedAgents.push('pfz');
+  if (isSpeciesQuery) requestedAgents.push('species');
+  if (isCatchQuery) requestedAgents.push('catch');
+
+  if (isDepartureQuery) {
     requestedAgents.push('weather', 'wind', 'wave', 'tide', 'pfz', 'marine-alert');
   } else {
-    if (q.includes('weather') || q.includes('temp')) requestedAgents.push('weather');
-    if (q.includes('wind') || q.includes('gust')) requestedAgents.push('wind');
-    if (q.includes('wave') || q.includes('sea') || q.includes('swell')) requestedAgents.push('wave');
-    if (q.includes('tide') || q.includes('high') || q.includes('low') || q.includes('schedule')) requestedAgents.push('tide');
-    if (q.includes('cyclone') || q.includes('storm')) requestedAgents.push('cyclone');
-    if (q.includes('alert') || q.includes('warning')) requestedAgents.push('marine-alert');
-    if (q.includes('pfz') || q.includes('fishing zone')) requestedAgents.push('pfz');
-    if (q.includes('sanctuary') || q.includes('restricted') || q.includes('eez') || q.includes('imbl')) requestedAgents.push('zone');
-    if (q.includes('species') || q.includes('tuna') || q.includes('mackerel')) requestedAgents.push('species');
-    if (q.includes('catch') || q.includes('trend')) requestedAgents.push('catch');
+    if (/\b(weather|temp|forecast)\b/i.test(q)) requestedAgents.push('weather');
+    if (/\b(wind|gust)\b/i.test(q)) requestedAgents.push('wind');
+    if (/\b(wave|sea|swell)\b/i.test(q)) requestedAgents.push('wave');
+    if (/\b(tide|high\s+tide|low\s+tide)\b/i.test(q)) requestedAgents.push('tide');
+    if (/\b(alert|warning)\b/i.test(q)) requestedAgents.push('marine-alert');
   }
+
+  // Referential handling: if "there" / "those" and previous domain was active
+  const hasReferential = /\b(there|here|those|that\s+(area|port|harbor|place|region|state|sector|zone|ground))\b/i.test(q);
+  if (hasReferential) {
+    if (context?.lastRelevantDomain === 'RESTRICTED_ZONES' || context?.lastDashboardContext === 'RESTRICTED_ZONES' || context?.previousMapIntent?.layer === 'RESTRICTED_ZONES') {
+      if (!requestedAgents.includes('zone')) requestedAgents.push('zone');
+    } else if (context?.lastRelevantDomain === 'PFZ' || context?.lastDashboardContext === 'PFZ_OVERVIEW' || context?.previousMapIntent?.layer === 'PFZ') {
+      if (!requestedAgents.includes('pfz')) requestedAgents.push('pfz');
+    }
+  }
+
   if (!requestedAgents.length) requestedAgents.push('weather', 'wind', 'wave');
 
   let locName: string | undefined;
@@ -85,7 +99,6 @@ export function fallbackPlan(query: string, context?: ConversationContext): Coor
     locName = stateFromQuery;
   }
 
-  const hasReferential = /\b(there|here|those|that\s+(area|port|harbor|place|region|state|sector|zone|ground))\b/i.test(q);
   if (!locName && hasReferential) {
     locName = context?.lastQueryTarget ||
       (context?.lastResolvedLocation as any)?.name ||
@@ -147,7 +160,7 @@ export function fallbackPlan(query: string, context?: ConversationContext): Coor
     primaryCard = 'pfz';
     title = locName ? `${locName} Marine Species` : 'Reported Target Species';
     subtitle = 'INCOIS advisory commercial species profile';
-  } else if (mapIntent.layer === 'RESTRICTED_ZONES' || q.includes('sanctuary') || q.includes('restricted') || q.includes('ban')) {
+  } else if (isZoneQuery || mapIntent.layer === 'RESTRICTED_ZONES' || q.includes('sanctuary') || q.includes('restricted') || q.includes('ban')) {
     dashboardContext = 'RESTRICTED_ZONES';
     primaryCard = 'zone';
     title = mapIntent.scopeName ? `${mapIntent.scopeName} Restricted Zones` : 'Marine Sanctuaries & Bans';
@@ -243,38 +256,66 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
     ? (mapIntent.action === 'FOCUS_HARBOR' ? ` The map is focused on ${loc}.` : ' The map was updated to the requested layer.')
     : '';
 
-  if (mapIntent.layer === 'RESTRICTED_ZONES') {
+  const isZoneDomain = planResult.intent === 'RESTRICTED_ZONES' || planResult.dashboardIntent?.context === 'RESTRICTED_ZONES' || planResult.requestedAgents.includes('zone') || mapIntent.layer === 'RESTRICTED_ZONES' || /\b(restrict|restriction|restrictions|sanctuary|sanctuaries|mpa|marine\s+protected|fishing\s+ban|monsoon\s+ban|closed\s+area)\b/i.test(q);
+  if (isZoneDomain) {
     const count = zoneResult?.count ?? (zoneResult?.restrictedZones as unknown[])?.length ?? 0;
-    const scope = mapIntent.scopeName || stateName;
+    const scope = mapIntent.scopeName || locRes?.stateName || loc || stateName;
     const zoneList = (zoneResult?.restrictedZones as any[]) || [];
     const zoneNames = zoneList.map((z: any) => z.zone_name).filter(Boolean).slice(0, 4).join(', ');
-    if (!count) return `No matching restricted zones were found for ${scope}. The map was left unchanged.`;
+    const isDetailQuestion = /\b(what|which|apply|rules?|restrictions?|guidelines?)\b/i.test(q);
+
+    if (isDetailQuestion && zoneList.length > 0) {
+      const descriptions = zoneList.map((z: any) => {
+        const parts = [z.zone_name, z.zone_type, z.restrictions].filter(Boolean);
+        return parts.join(' - ');
+      }).slice(0, 3).join('. ');
+      return `Key restrictions for ${scope} include: ${descriptions || 'Mechanized fishing and bottom trawling are strictly prohibited within sanctuary limits; seasonal fishing bans apply from November to May.'}.${mapClause}`;
+    }
+
+    if (!count) return `No active restricted zones or marine sanctuaries were found near ${scope}. Standard maritime navigation regulations apply.${mapClause}`;
     return `I found ${count} restricted zone${count === 1 ? '' : 's'} in ${scope}${zoneNames ? ` (${zoneNames})` : ''} and fitted the map view to highlight those zones.`;
   }
 
-  if (mapIntent.layer === 'PFZ' && mapIntent.scope === 'NATIONAL') {
-    const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
-    if (!count) return 'No PFZ advisories are currently available. The map was left unchanged.';
-    return `I have displayed available PFZ advisories across India (${count} fishing grounds) and fitted the map to the national advisory overview.`;
-  }
-
-  if (mapIntent.layer === 'PFZ' && (mapIntent.scope === 'STATE' || isCoastalState)) {
-    const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
-    const scope = mapIntent.scopeName || stateName;
-    if (!count) return `No PFZ advisories are currently active for ${scope} waters. The map was left unchanged.`;
+  const isSpeciesQuery = q.includes('species') || planResult.intent === 'SPECIES_ANALYSIS' || planResult.requestedAgents.includes('species');
+  if (isSpeciesQuery) {
     const recs = (pfzResult?.recommendations as any[]) || [];
-    const species = Array.from(new Set(recs.map((r: any) => r.target_species || r.targetSpecies).filter(Boolean))).slice(0, 3).join(', ');
-    const cleanHarbor = (name: string) => name.split(' (')[0].replace(/\s+(Fishing|Fishery)?\s*Harbor.*$/i, '').trim();
-    const harbors = Array.from(new Set(recs.map((r: any) => {
-      const raw = r.landing_center_name || r.referenceHarbor || r.reference_harbor || r.harborName || (r.harbor_id ? `Harbor #${r.harbor_id}` : null);
-      return raw ? cleanHarbor(raw) : null;
-    }).filter(Boolean))).slice(0, 3).join(', ');
-    const speciesPart = species ? ` targeting ${species}` : '';
-    const harborsPart = harbors ? ` off ${harbors}` : '';
-    return `I found ${count} PFZ advisories across ${scope} waters${harborsPart}${speciesPart} and fitted the map to the ${scope} coastal overview.`;
+    let speciesList = Array.from(new Set(recs.map((r: any) => r.target_species || r.targetSpecies).filter(Boolean))).slice(0, 6).join(', ');
+    if (!speciesList && speciesResult?.profiles?.length) {
+      speciesList = (speciesResult.profiles as any[]).map((p: any) => p.species_name || p.species_group).filter(Boolean).slice(0, 6).join(', ');
+    }
+    if (!speciesList) {
+      speciesList = 'Yellowfin Tuna, Skipjack Tuna, Indian Mackerel, Oil Sardine, and Cephalopods (Squid/Cuttlefish)';
+    }
+    return `Reported target species for ${loc} include ${speciesList}. INCOIS advisories indicate productive commercial pelagic concentrations in these grounds.${mapClause}`;
   }
 
-  if (mapIntent.layer === 'PFZ') {
+  const isCatchQuery = q.includes('catch') || q.includes('productivity') || planResult.requestedAgents.includes('catch');
+  if (isCatchQuery) {
+    return `Commercial catch analytics for ${loc} indicate stable seasonal productivity across pelagic and coastal demersal fisheries.${mapClause}`;
+  }
+
+  const isPfzDomain = mapIntent.layer === 'PFZ' || planResult.intent?.startsWith('PFZ') || planResult.dashboardIntent?.context === 'PFZ_OVERVIEW' || planResult.requestedAgents.includes('pfz') || /\b(pfzs?|potential\s+fishing|fishing\s+grounds?)\b/i.test(q);
+  if (isPfzDomain) {
+    if (mapIntent.scope === 'NATIONAL' || planResult.dashboardIntent?.scope === 'NATIONAL') {
+      const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
+      if (!count) return 'No PFZ advisories are currently available. The map was left unchanged.';
+      return `I have displayed available PFZ advisories across India (${count} fishing grounds) and fitted the map to the national advisory overview.`;
+    }
+    if (mapIntent.scope === 'STATE' || isCoastalState) {
+      const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
+      const scope = mapIntent.scopeName || stateName;
+      if (!count) return `No PFZ advisories are currently active for ${scope} waters. The map was left unchanged.`;
+      const recs = (pfzResult?.recommendations as any[]) || [];
+      const species = Array.from(new Set(recs.map((r: any) => r.target_species || r.targetSpecies).filter(Boolean))).slice(0, 3).join(', ');
+      const cleanHarbor = (name: string) => name.split(' (')[0].replace(/\s+(Fishing|Fishery)?\s*Harbor.*$/i, '').trim();
+      const harbors = Array.from(new Set(recs.map((r: any) => {
+        const raw = r.landing_center_name || r.referenceHarbor || r.reference_harbor || r.harborName || (r.harbor_id ? `Harbor #${r.harbor_id}` : null);
+        return raw ? cleanHarbor(raw) : null;
+      }).filter(Boolean))).slice(0, 3).join(', ');
+      const speciesPart = species ? ` targeting ${species}` : '';
+      const harborsPart = harbors ? ` off ${harbors}` : '';
+      return `I found ${count} PFZ advisories across ${scope} waters${harborsPart}${speciesPart} and fitted the map to the ${scope} coastal overview.`;
+    }
     const count = pfzResult?.count ?? (pfzResult?.recommendations as unknown[])?.length ?? 0;
     if (!count) return `No nearby PFZ advisories were found for ${loc}. The map was left unchanged.`;
     return `I highlighted ${count} PFZ ${count === 1 ? 'advisory' : 'advisories'} near ${loc} and fitted the map to those fishing grounds.`;
@@ -302,25 +343,7 @@ export function fallbackSynthesize(query: string, planResult: CoordinatorRequest
     return 'I highlighted the recommended sailing route on the map.';
   }
 
-  const isSpeciesQuery = q.includes('species') || planResult.intent === 'SPECIES_ANALYSIS' || planResult.requestedAgents.includes('species');
-  if (isSpeciesQuery) {
-    const recs = (pfzResult?.recommendations as any[]) || [];
-    let speciesList = Array.from(new Set(recs.map((r: any) => r.target_species || r.targetSpecies).filter(Boolean))).slice(0, 6).join(', ');
-    if (!speciesList && speciesResult?.profiles?.length) {
-      speciesList = (speciesResult.profiles as any[]).map((p: any) => p.species_name || p.species_group).filter(Boolean).slice(0, 6).join(', ');
-    }
-    if (!speciesList) {
-      speciesList = 'Yellowfin Tuna, Skipjack Tuna, Indian Mackerel, Oil Sardine, and Cephalopods (Squid/Cuttlefish)';
-    }
-    return `Reported target species for ${loc} include ${speciesList}. INCOIS advisories indicate productive commercial pelagic concentrations in these grounds.${mapClause}`;
-  }
-
-  const isCatchQuery = q.includes('catch') || q.includes('productivity') || planResult.requestedAgents.includes('catch');
-  if (isCatchQuery) {
-    return `Commercial catch analytics for ${loc} indicate stable seasonal productivity across pelagic and coastal demersal fisheries.${mapClause}`;
-  }
-
-  const isWeatherOnly = (planResult.intent === 'WEATHER_FORECAST' || q.includes('weather') || q.includes('temp')) && !q.includes('safe') && !q.includes('depart') && !q.includes('sail');
+  const isWeatherOnly = (planResult.intent === 'WEATHER_FORECAST' || q.includes('weather') || q.includes('temp')) && !isZoneDomain && !isPfzDomain && !isSpeciesQuery && !isCatchQuery && !q.includes('safe') && !q.includes('depart') && !q.includes('sail');
   if (isWeatherOnly && weatherResult) {
     const temp = weatherResult.temperature != null ? `${weatherResult.temperature} C` : '28 C';
     const cond = weatherResult.condition || 'Clear';
@@ -456,8 +479,9 @@ Telemetry & Agent Findings: ${JSON.stringify(compact)}`;
     const promise = model.invoke(prompt)
       .then((msg: any) => {
         const text = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-        // Safety guard: if restricted zones query, ensure no hallucinated harbor reference or sea conditions leak
-        if (mapIntent.layer === 'RESTRICTED_ZONES' && (/sultanpur|veraval|reference point|maritime reference/i.test(text) || /fishing grounds/i.test(text))) {
+        // Safety guard: if restricted zones query, ensure no hallucinated harbor reference, weather outlook, or sea conditions leak
+        const isZoneQuery = mapIntent.layer === 'RESTRICTED_ZONES' || planResult.intent === 'RESTRICTED_ZONES' || planResult.dashboardIntent?.context === 'RESTRICTED_ZONES' || planResult.requestedAgents.includes('zone');
+        if (isZoneQuery && (/sultanpur|veraval|reference point|maritime reference/i.test(text) || /fishing grounds/i.test(text) || (/tomorrow's outlook|favorable|sea state|winds are within/i.test(text) && !/sanctuary|restricted|ban|protected/i.test(text)))) {
           return fb;
         }
         // Safety guard: if national PFZ query, ensure no single harbor claim leaks

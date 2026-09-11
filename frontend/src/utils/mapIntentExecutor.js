@@ -153,16 +153,21 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (onUpdateDynamicAdvisories) {
         onUpdateDynamicAdvisories(null);
       }
-      const label = intent.scopeName
-        ? 'Restricted Zones: ' + intent.scopeName
-        : 'Marine Protected Areas and Sanctuaries';
+      const rawScope = intent.scopeName || payload?.queryTarget || 'Maritime';
+      const cleanScope = rawScope.replace(/\s*\(Bunder\)/i, '').replace(/\s*Fish\s+Landing\s+Center/i, '').replace(/\s*Fishing\s+Harbor/i, '').trim();
+      const label = `${cleanScope} Restricted Zones`;
 
       if (onMapFocus) {
         onMapFocus({
+          type: 'RESTRICTED_ZONE',
           layer: 'RESTRICTED_ZONES',
+          scope: intent.scope || 'REGION',
+          scopeName: intent.scopeName || cleanScope,
+          label,
+          location: intent.location || payload?.location || null,
+          entityIds: targetIds,
           bounds: intent.bounds,
           highlightedZoneIds: targetIds,
-          label,
           timestamp: Date.now()
         });
       }
@@ -179,23 +184,32 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
       if (onUpdateDynamicZones) {
         onUpdateDynamicZones(null);
       }
-      const label = isNational
-        ? 'National PFZ View (India)'
-        : (isState
-          ? 'PFZ Overview: ' + (intent.scopeName || 'State') + ' Waters'
-          : (intent.scopeName ? 'PFZ Hotspots: ' + intent.scopeName : 'Potential Fishing Zone'));
+      const rawScope = intent.scopeName || payload?.queryTarget;
+      const cleanScope = rawScope ? rawScope.replace(/\s*\(Bunder\)/i, '').replace(/\s*Fish\s+Landing\s+Center/i, '').replace(/\s*Fishing\s+Harbor/i, '').trim() : null;
+
+      let label = 'Potential Fishing Zone';
+      if (isNational) {
+        label = 'National PFZ View (India)';
+      } else if (isState) {
+        label = `${cleanScope || 'State'} PFZ Hotspots`;
+      } else if (cleanScope) {
+        label = `${cleanScope} PFZ Hotspots`;
+      }
 
       if (onMapFocus) {
         onMapFocus({
+          type: 'PFZ',
           layer: 'PFZ',
           scope: isNational ? 'NATIONAL' : (isState ? 'STATE' : 'NEAR_LOCATION'),
-          scopeName: intent.scopeName,
+          scopeName: intent.scopeName || cleanScope,
+          label,
+          location: intent.location || payload?.location || null,
+          entityIds: targetIds,
           bounds: intent.bounds,
           highlightedPfzIds: targetIds,
           lat: intent.location?.latitude,
           lon: intent.location?.longitude,
           zoom: isNational ? 5 : (isState ? 8 : 10),
-          label,
           timestamp: Date.now()
         });
       }
@@ -206,10 +220,14 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     if (layer === 'CYCLONES') {
       if (onMapFocus) {
         onMapFocus({
+          type: 'CYCLONE',
           layer: 'CYCLONES',
+          scope: 'NATIONAL',
+          label: 'Active Cyclone Track & Proximity Radar',
+          location: intent.location || null,
+          entityIds: targetIds,
           bounds: intent.bounds,
           cyclones: payload?.mapData?.cyclones,
-          label: 'Active Cyclone Track and Proximity Radar',
           timestamp: Date.now()
         });
       }
@@ -220,9 +238,13 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     if (layer === 'EEZ') {
       if (onMapFocus) {
         onMapFocus({
+          type: 'EEZ',
           layer: 'EEZ',
-          bounds: intent.bounds || [[5.5, 66.5], [23.8, 94.5]],
+          scope: 'NATIONAL',
           label: 'Indian Exclusive Economic Zone (200 NM)',
+          location: null,
+          entityIds: [],
+          bounds: intent.bounds || [[5.5, 66.5], [23.8, 94.5]],
           timestamp: Date.now()
         });
       }
@@ -233,9 +255,13 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     if (layer === 'IMBL') {
       if (onMapFocus) {
         onMapFocus({
+          type: 'IMBL',
           layer: 'IMBL',
-          bounds: intent.bounds || [[8.5, 78.5], [10.5, 80.5]],
+          scope: 'NATIONAL',
           label: 'International Maritime Boundary Line (IMBL)',
+          location: null,
+          entityIds: [],
+          bounds: intent.bounds || [[8.5, 78.5], [10.5, 80.5]],
           timestamp: Date.now()
         });
       }
@@ -246,8 +272,12 @@ export function executeMapIntent(mapIntent, payload, handlers = {}) {
     if (layer === 'ROUTES') {
       if (onMapFocus) {
         onMapFocus({
+          type: 'ROUTE',
           layer: 'ROUTES',
+          scope: 'CURRENT_HARBOR',
           label: 'Recommended Navigation Corridor',
+          location: intent.location || null,
+          entityIds: targetIds,
           timestamp: Date.now()
         });
       }

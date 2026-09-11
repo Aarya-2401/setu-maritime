@@ -68,6 +68,7 @@ export default function ChatPanel({
   onUpdateDashboardIntent,
   onUpdateCardUpdates,
   onUpdateQueryTarget,
+  onApplyAIResponse,
   isMobile = false
 }) {
   const [input, setInput] = useState('')
@@ -88,8 +89,9 @@ export default function ChatPanel({
     lastSpecies: null
   })
 
+  // Unified message sender for both typed input and suggestion pills
   async function sendMessage(text) {
-    const trimmed = (text || input).trim()
+    const trimmed = (text || '').trim()
     if (!trimmed || typing) return
 
     const userMsg = {
@@ -138,18 +140,23 @@ export default function ChatPanel({
           lastRelevantDomain: effectiveIntent.layer || aiResponse.dashboardIntent?.context || conversationContextRef.current.lastRelevantDomain,
           lastSpecies: aiResponse.agentResults?.find((r) => r.agent === 'species')?.data?.species || conversationContextRef.current.lastSpecies
         }
-        executeMapIntent(effectiveIntent, aiResponse, {
-          onSelectHarbor,
-          onMapFocus,
-          onSetInlandLocation,
-          onSelectUserLocation,
-          onDisengageInland,
-          onUpdateDynamicAdvisories,
-          onUpdateDynamicZones,
-          onUpdateDashboardIntent,
-          onUpdateCardUpdates,
-          onUpdateQueryTarget
-        })
+
+        if (onApplyAIResponse) {
+          onApplyAIResponse(aiResponse)
+        } else {
+          executeMapIntent(effectiveIntent, aiResponse, {
+            onSelectHarbor,
+            onMapFocus,
+            onSetInlandLocation,
+            onSelectUserLocation,
+            onDisengageInland,
+            onUpdateDynamicAdvisories,
+            onUpdateDynamicZones,
+            onUpdateDashboardIntent,
+            onUpdateCardUpdates,
+            onUpdateQueryTarget
+          })
+        }
 
         const reply = {
           id: getUUID(),

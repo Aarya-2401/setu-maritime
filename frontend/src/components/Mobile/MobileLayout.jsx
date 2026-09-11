@@ -133,7 +133,9 @@ export default function MobileLayout({
   onUpdateDynamicZones,
   onUpdateDashboardIntent,
   onUpdateCardUpdates,
-  onUpdateQueryTarget
+  onUpdateQueryTarget,
+  globalTelemetry,
+  onApplyAIResponse
 }) {
   const [activeNav, setActiveNav] = useState('home')
   const [activeModal, setActiveModal] = useState(null)
@@ -424,18 +426,22 @@ export default function MobileLayout({
           lastRelevantDomain: effectiveIntent.layer || aiResponse.dashboardIntent?.context || mobileConversationContextRef.current.lastRelevantDomain,
           lastSpecies: aiResponse.agentResults?.find((r) => r.agent === 'species')?.data?.species || mobileConversationContextRef.current.lastSpecies
         }
-        executeMapIntent(effectiveIntent, aiResponse, {
-          onSelectHarbor,
-          onMapFocus,
-          onSetInlandLocation,
-          onSelectUserLocation,
-          onDisengageInland,
-          onUpdateDynamicAdvisories,
-          onUpdateDynamicZones,
-          onUpdateDashboardIntent,
-          onUpdateCardUpdates,
-          onUpdateQueryTarget
-        })
+        if (onApplyAIResponse) {
+          onApplyAIResponse(aiResponse)
+        } else {
+          executeMapIntent(effectiveIntent, aiResponse, {
+            onSelectHarbor,
+            onMapFocus,
+            onSetInlandLocation,
+            onSelectUserLocation,
+            onDisengageInland,
+            onUpdateDynamicAdvisories,
+            onUpdateDynamicZones,
+            onUpdateDashboardIntent,
+            onUpdateCardUpdates,
+            onUpdateQueryTarget
+          })
+        }
 
         const reply = {
           id: getMessageUUID(),
@@ -495,8 +501,9 @@ export default function MobileLayout({
           <span className="mobile-header__title">SETU-ADAM01</span>
         </div>
 
-        <div className="mobile-header__location-pill" title="Tap to select location">
+        <div className="mobile-header__location-pill" title="Operational Base Harbor">
           <IconLocation size={12} color="#38bdf8" />
+          <span className="mobile-header__base-badge">BASE</span>
           <span className="mobile-header__location-text">
             {locationText}
           </span>
@@ -541,70 +548,75 @@ export default function MobileLayout({
         </div>
       </header>
 
-      {/* 2. Top 4 Telemetry Information Capsules: Weather, Wind/Wave, Tide/Wave, Time */}
+      {/* 2. Top 4 Telemetry Information Capsules: WEATHER, WIND, WAVE, TIDE */}
       {activeNav === 'home' && (
         <section className="mobile-telemetry-capsules" aria-label="Key Maritime Telemetry">
+          {/* Pill 1: WEATHER + TIME */}
           <button
             type="button"
             className="mobile-telemetry-capsule"
             onClick={() => setActiveModal('weather')}
-            title="Air Temperature & Weather Details"
+            title={`Air Temperature & Weather Details · ${globalTelemetry?.weather?.location || locationName}`}
             aria-label="View Weather Details"
           >
             <div className="mobile-capsule-row">
               <span className="mobile-capsule-icon">
-                <IconCloud size={14} color="#38bdf8" />
+                <IconCloud size={13} color="#38bdf8" />
               </span>
-              <span className="mobile-capsule-val">{displayTempVal}</span>
+              <span className="mobile-capsule-val">{globalTelemetry?.weather?.value || displayTempVal} · {timeVal}</span>
             </div>
-            <span className="mobile-capsule-lbl">Air Temp</span>
+            <span className="mobile-capsule-lbl">WEATHER</span>
           </button>
 
+          {/* Pill 2: WIND */}
           <button
             type="button"
             className="mobile-telemetry-capsule"
             onClick={() => setActiveModal('wind')}
-            title="Wind Speed & Surface Dynamics"
+            title={`Wind Speed & Surface Dynamics · ${globalTelemetry?.wind?.location || locationName}`}
             aria-label="View Wind Details"
           >
             <div className="mobile-capsule-row">
               <span className="mobile-capsule-icon">
-                <IconWind size={14} color="#38bdf8" />
+                <IconWind size={13} color="#38bdf8" />
               </span>
-              <span className="mobile-capsule-val">{windDisplay}</span>
+              <span className="mobile-capsule-val">{globalTelemetry?.wind?.value || windDisplay}</span>
             </div>
-            <span className="mobile-capsule-lbl">Wind Speed</span>
+            <span className="mobile-capsule-lbl">WIND</span>
           </button>
 
+          {/* Pill 3: WAVE */}
           <button
             type="button"
             className="mobile-telemetry-capsule"
             onClick={() => setActiveModal(hasLiveMarineData ? 'waves' : 'weather')}
-            title="Wave Height & Maritime Conditions"
+            title={`Wave Height & Maritime Conditions · ${globalTelemetry?.wave?.location || locationName}`}
             aria-label="View Wave Details"
           >
             <div className="mobile-capsule-row">
               <span className="mobile-capsule-icon">
-                <IconWave size={14} color="#38bdf8" />
+                <IconWave size={13} color="#38bdf8" />
               </span>
-              <span className="mobile-capsule-val">{displayWaveVal}</span>
+              <span className="mobile-capsule-val">{globalTelemetry?.wave?.value || displayWaveVal}</span>
             </div>
-            <span className="mobile-capsule-lbl">Wave Height</span>
+            <span className="mobile-capsule-lbl">WAVE</span>
           </button>
 
+          {/* Pill 4: TIDE */}
           <button
             type="button"
             className="mobile-telemetry-capsule"
-            title="Operational Maritime Clock"
-            aria-label="Current Local Time"
+            onClick={() => setActiveModal('tide')}
+            title={`Tidal Height & Cycle · ${globalTelemetry?.tide?.location || locationName}`}
+            aria-label="View Tide Details"
           >
             <div className="mobile-capsule-row">
               <span className="mobile-capsule-icon">
-                <IconSun size={14} color="#38bdf8" />
+                <IconTide size={13} color="#38bdf8" />
               </span>
-              <span className="mobile-capsule-val">{timeVal}</span>
+              <span className="mobile-capsule-val">{globalTelemetry?.tide?.value || tideVal}</span>
             </div>
-            <span className="mobile-capsule-lbl">{dateVal}</span>
+            <span className="mobile-capsule-lbl">TIDE</span>
           </button>
         </section>
       )}
